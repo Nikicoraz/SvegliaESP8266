@@ -39,6 +39,9 @@ const byte columns = 20;
 LiquidCrystal_I2C lcd(0x27, columns, 4);
 byte isBacklightOn = 0;
 
+// Menu
+const String menu[4] { "<- Back", "Test1", "Test2", "Test3" };
+
 int calculateCenterTextColumnStart(int length) {
   return (columns - length) / 2;
 }
@@ -76,16 +79,26 @@ void updateNTPTime() {
 
   connectWifi();
   timeClient.begin();
-  timeClient.update();
-  seconds = timeClient.getSeconds();
-  minutes = timeClient.getMinutes();
-  hours = timeClient.getHours();
-  day = timeClient.getDay();
+  do{
+    timeClient.update();
+    seconds = timeClient.getSeconds();
+    minutes = timeClient.getMinutes();
+    hours = timeClient.getHours();
+    day = timeClient.getDay();
+    Serial.printf("Is now %02d:%02d:%02d", hours, minutes, seconds);
+  }while(hours == 1 && seconds == 6); // When the update fails it sets hours = 1 and seconds = 6 ???? I should change it later...
 
-  Serial.printf("Is now %02d:%02d:%02d", hours, minutes, seconds);
 
   timeClient.end();
   WiFi.disconnect();
+}
+
+void renderMenu(){
+  lcd.clear();
+  for(int i = 0; i < 4; i++){
+    lcd.setCursor(0, i);
+    lcd.print(menu[i]);
+  }
 }
 
 void setup() {
@@ -94,12 +107,12 @@ void setup() {
   pinMode(ledPin, OUTPUT);
   pinMode(buzzerPin, OUTPUT);
   pinMode(CLK, INPUT);
-  digitalWrite(5, HIGH);
   pinMode(SW, INPUT_PULLUP);
   pinMode(DT, INPUT);
-  digitalWrite(6, HIGH);
 
-  attachInterrupt(digitalPinToInterrupt(14), encoderRotateInterrupt, FALLING);
+  // Pull-up
+  digitalWrite(CLK, HIGH);
+  digitalWrite(DT, HIGH);
 
   lcd.init();
   toggleBacklight();
@@ -107,11 +120,20 @@ void setup() {
 
   Serial.println("\nStart\n\n");
   Serial.println("Ciao");
+
+  // Encoder
+  attachInterrupt(digitalPinToInterrupt(14), encoderRotateInterrupt, FALLING);
 }
 
-bool fired = false;
+byte isMenuOpen = false;
 ICACHE_RAM_ATTR void encoderRotateInterrupt() {
-  fired = true;
+  if(isMenuOpen){
+    if(digitalRead(DT)){
+      Serial.println("+1");
+    }else{
+      Serial.println("-1");
+    }
+  }
 }
 
 
@@ -122,39 +144,41 @@ long long int lastTimeUpdate = -NTPUpdateMillis;
 long long int backlightTimer = millis();
 
 void loop() {
-  // Turn off backlight after 10 seconds
-  if (isBacklightOn && millis() - backlightTimer > 10000) {
-    toggleBacklight();
-  }
-  // Time logic
-  if (millis() - lastTimeUpdate > NTPUpdateMillis) {
-    updateNTPTime();
-    lastTimeUpdate = millis();
-  }
-  if (millis() - prev > 1000) {
-    // One second has passed
+  if(!isMenuOpen){
+    // Turn off backlight after 10 seconds
+    if (isBacklightOn && millis() - backlightTimer > 10000) {
+      toggleBacklight();
+    }
+    // Time logic
+    if (millis() - lastTimeUpdate > NTPUpdateMillis) {
+      updateNTPTime();
+      lastTimeUpdate = millis();
+    }
+    if (millis() - prev > 1000) {
+      // One second has passed
 
-    digitalWrite(ledPin, !digitalRead(ledPin));
-    seconds += 1;
-    if (seconds == 60) {
-      seconds = 0;
-      minutes += 1;
-      if (minutes == 60) {
-        minutes = 0;
-        hours += 1;
-        if (hours == 24) {
-          hours = 0;
-          day = (day + 1) % 7;
+      digitalWrite(ledPin, !digitalRead(ledPin));
+      seconds += 1;
+      if (seconds == 60) {
+        seconds = 0;
+        minutes += 1;
+        if (minutes == 60) {
+          minutes = 0;
+          hours += 1;
+          if (hours == 24) {
+            hours = 0;
+            day = (day + 1) % 7;
+          }
         }
       }
+
+      lcd.clear();
+
+      // The length of the time is always 8 chars with seconds
+      lcd.setCursor(calculateCenterTextColumnStart(8), 0);
+      lcd.printf("%02d:%02d:%02d", hours, minutes, seconds);
+      prev = millis();
     }
-
-    lcd.clear();
-
-    // The length of the time is always 8 chars with seconds
-    lcd.setCursor(calculateCenterTextColumnStart(8), 0);
-    lcd.printf("%02d:%02d:%02d", hours, minutes, seconds);
-    prev = millis();
   }
 
   // Menu logic
@@ -163,15 +187,11 @@ void loop() {
   if (!digitalRead(SW)) {
     if (!isBacklightOn) {
       toggleBacklight();
+      backlightTimer = millis();
+    }else{
+      isMenuOpen = true;
+      renderMenu();
     }
-    backlightTimer = millis();
-  }
-
-  if (fired) {
-    Serial.print("CLK: ");
-    Serial.println(digitalRead(CLK));
-    Serial.print("DT: ");
-    Serial.println(digitalRead(DT));
-    fired = false;
+    delay(200);
   }
 }
