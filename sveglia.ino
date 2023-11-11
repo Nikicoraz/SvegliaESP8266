@@ -37,11 +37,13 @@ NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", utcOffsetInSeconds);
 
 // LCD setup
 const byte columns = 20;
-LiquidCrystal_I2C lcd(0x27, columns, 4);
+const byte rows = 4;
+LiquidCrystal_I2C lcd(0x27, columns, rows);
 byte isBacklightOn = 0;
 
 // Menu
 MenuItem* currentMenu = nullptr;
+int currentMenuLength;
 byte isMenuOpen = false;
 
 void BackCallback();
@@ -50,6 +52,7 @@ MenuItem mainMenu[] = {
   MenuItem("Back", BackCallback), MenuItem("Setup alarm"), MenuItem("Modify tmrw's alarm"), MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time")
 };
 int menuOption = 0;
+int firstMenuOption = 0;
 
 // Custom chars
 byte downArrow[] = {
@@ -118,7 +121,7 @@ void updateNTPTime() {
   WiFi.disconnect();
 }
 
-void renderMenu(MenuItem* menu, int firstOption) {
+void renderMenu(MenuItem* menu, int firstOption, bool resetCursor = true) {
   lcd.clear();
   for (int i = firstOption; i < firstOption + 4; i++) {
     lcd.setCursor(0, i - firstOption);
@@ -128,8 +131,10 @@ void renderMenu(MenuItem* menu, int firstOption) {
       lcd.write(0);
     }
   }
-  lcd.cursor();
-  lcd.setCursor(0, 0);
+  if(resetCursor){
+    lcd.cursor();
+    lcd.setCursor(0, 0);
+  }
 }
 
 void drawMainScreen(){
@@ -168,18 +173,30 @@ void setup() {
 
 ICACHE_RAM_ATTR void encoderRotateInterrupt() {
   if(isMenuOpen){
+    // Change the current menu option
     if(digitalRead(DT)){
       if (menuOption > 0) menuOption--;
     }else{
-      if(menuOption < 4) menuOption++;
+      if(currentMenuLength - menuOption - 1 > 0){
+        menuOption++;
+      }
     }
-    lcd.setCursor(0, menuOption);
+    
+    // Render menu based on the first menu option
+    if(menuOption - firstMenuOption >= rows){
+      firstMenuOption++;
+      renderMenu(currentMenu, firstMenuOption, false);
+    }else if(menuOption < firstMenuOption){
+      firstMenuOption--;
+      renderMenu(currentMenu, firstMenuOption, false);
+    }
+    lcd.setCursor(0, menuOption - firstMenuOption);
     delay(100);
   }
 }
 
 
-const int NTPUpdateMillis = 1000 * 60 * 15;  // Update every 15 minutes
+const int NTPUpdateMillis = 1000 * 60 * 10;  // Update every 10 minutes
 
 long long int prev = 0;
 long long int lastTimeUpdate = -NTPUpdateMillis;
@@ -233,6 +250,7 @@ void loop() {
     }else{
       if(!isMenuOpen){
         currentMenu = mainMenu;
+        currentMenuLength = 6;
         isMenuOpen = true;
         menuOption = 0;
         renderMenu(currentMenu, 0);
