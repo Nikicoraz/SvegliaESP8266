@@ -44,27 +44,13 @@ byte isBacklightOn = 0;
 // Menu
 MenuItem* currentMenu = nullptr;
 int currentMenuLength;
-byte isMenuOpen = false;
-
-void BackCallback();
-
-MenuItem mainMenu[] = {
-  MenuItem("Back", BackCallback), MenuItem("Setup alarm"), MenuItem("Modify tmrw's alarm"), MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time")
-};
 int menuOption = 0;
 int firstMenuOption = 0;
+byte isMenuOpen = false;
 
-// Custom chars
-byte downArrow[] = {
-  B00000,
-  B00000,
-  B00000,
-  B00000,
-  B00000,
-  B11111,
-  B01110,
-  B00100
-};
+//
+// --- GENERAL FUNCTIONS ---
+//
 
 int calculateCenterTextColumnStart(int length) {
   return (columns - length) / 2;
@@ -96,7 +82,7 @@ void connectWifi() {
   Serial.println(SSID);
 }
 
-void BackCallback(){
+void closeMenu(){
   isMenuOpen = false;
   drawMainScreen();
 }
@@ -125,7 +111,7 @@ void renderMenu(MenuItem* menu, int firstOption, bool resetCursor = true) {
   lcd.clear();
   for (int i = firstOption; i < firstOption + 4; i++) {
     lcd.setCursor(0, i - firstOption);
-    lcd.print(mainMenu[i].getText().c_str());
+    lcd.print(menu[i].getText().c_str());
     if (i == firstOption + 3) {
       lcd.setCursor(columns - 1, i - firstOption);
       lcd.write(0);
@@ -144,31 +130,6 @@ void drawMainScreen(){
   // The length of the time is always 8 chars with seconds
   lcd.setCursor(calculateCenterTextColumnStart(8), 0);
   lcd.printf("%02d:%02d:%02d", hours, minutes, seconds);
-}
-
-void setup() {
-  Serial.begin(115200);  // Start serial communication at 115200 baud
-
-  pinMode(ledPin, OUTPUT);
-  pinMode(buzzerPin, OUTPUT);
-  pinMode(CLK, INPUT);
-  pinMode(SW, INPUT_PULLUP);
-  pinMode(DT, INPUT);
-
-  // Pull-up
-  digitalWrite(CLK, HIGH);
-  digitalWrite(DT, HIGH);
-
-  lcd.init();
-  lcd.createChar(0, downArrow);
-  toggleBacklight();
-  centerPrint("Connecting...", 1);
-
-  Serial.println("\nStart\n\n");
-  Serial.println("Ciao");
-
-  // Encoder
-  attachInterrupt(digitalPinToInterrupt(14), encoderRotateInterrupt, FALLING);
 }
 
 ICACHE_RAM_ATTR void encoderRotateInterrupt() {
@@ -195,6 +156,60 @@ ICACHE_RAM_ATTR void encoderRotateInterrupt() {
   }
 }
 
+// 
+//  --- CALLBACKS ---
+//
+
+void updateTimeCallback(){
+  lcd.clear();
+  lcd.noCursor();
+  centerPrint("Updating time...", 1);
+
+  updateNTPTime();
+  closeMenu();
+}
+
+MenuItem mainMenu[] = {
+  MenuItem("Back", closeMenu), MenuItem("Setup alarm"), MenuItem("Modify tmrw's alarm"), MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time", updateTimeCallback)
+};
+
+
+// Custom chars
+byte downArrow[] = {
+  B00000,
+  B00000,
+  B00000,
+  B00000,
+  B00000,
+  B11111,
+  B01110,
+  B00100
+};
+
+void setup() {
+  Serial.begin(115200);  // Start serial communication at 115200 baud
+
+  pinMode(ledPin, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
+  pinMode(CLK, INPUT);
+  pinMode(SW, INPUT_PULLUP);
+  pinMode(DT, INPUT);
+
+  // Pull-up
+  digitalWrite(CLK, HIGH);
+  digitalWrite(DT, HIGH);
+
+  lcd.init();
+  lcd.createChar(0, downArrow);
+  toggleBacklight();
+  centerPrint("Connecting...", 1);
+
+  Serial.println("\nStart\n\n");
+  Serial.println("Ciao");
+
+  // Encoder
+  attachInterrupt(digitalPinToInterrupt(14), encoderRotateInterrupt, FALLING);
+}
 
 const int NTPUpdateMillis = 1000 * 60 * 10;  // Update every 10 minutes
 
