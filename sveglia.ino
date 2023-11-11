@@ -132,6 +132,14 @@ void drawMainScreen(){
   lcd.printf("%02d:%02d:%02d", hours, minutes, seconds);
 }
 
+void changeMenu(MenuItem* menu, int length){
+  currentMenu = menu;
+  currentMenuLength = length;
+  isMenuOpen = true;
+  menuOption = 0;
+  renderMenu(currentMenu, 0);
+}
+
 ICACHE_RAM_ATTR void encoderRotateInterrupt() {
   if(isMenuOpen){
     // Change the current menu option
@@ -156,6 +164,10 @@ ICACHE_RAM_ATTR void encoderRotateInterrupt() {
   }
 }
 
+int abs(int x){
+  return x > 0 ? x : -x;
+}
+
 // 
 //  --- CALLBACKS ---
 //
@@ -169,10 +181,47 @@ void updateTimeCallback(){
   closeMenu();
 }
 
-MenuItem mainMenu[] = {
-  MenuItem("Back", closeMenu), MenuItem("Setup alarm"), MenuItem("Modify tmrw's alarm"), MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time", updateTimeCallback)
+
+MenuItem alarmMenu[] = {
+  MenuItem("Back", alarmMenuBackCallback), MenuItem("Weekdays", setupAlarmDayCallback), MenuItem("Weekend", setupAlarmDayCallback), MenuItem("Monday", setupAlarmDayCallback), 
+  MenuItem("Tuesday", setupAlarmDayCallback),  MenuItem("Wednesday", setupAlarmDayCallback), MenuItem("Thursday", setupAlarmDayCallback), 
+  MenuItem("Friday", setupAlarmDayCallback), MenuItem("Saturday", setupAlarmDayCallback),   MenuItem("Sunday", setupAlarmDayCallback)
 };
 
+void setupAlarmCallback(){
+  changeMenu(alarmMenu, 10);
+}
+
+void setupAlarmDayCallback(){
+  int selectedDay = menuOption;
+  lcd.clear();
+  lcd.noCursor();
+  delay(100);
+  centerPrint("Alarm time");
+  
+  int min = 0, h = 0;
+  menuOption = 0;
+  char buffer[5];
+  do{
+    Serial.printf("min %d\n", min);
+    min = abs(menuOption % 60);
+    sprintf(buffer, "%02d:%02d", min, h);
+    centerPrint(buffer, 1);
+    yield();
+    delay(150);
+  }while(digitalRead(SW));
+  delay(50);
+
+  changeMenu(alarmMenu, 10);
+}
+
+MenuItem mainMenu[] = {
+  MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Modify tmrw's alarm"), MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time", updateTimeCallback)
+};
+
+void alarmMenuBackCallback(){
+  changeMenu(mainMenu, 6);
+}
 
 // Custom chars
 byte downArrow[] = {
@@ -264,11 +313,7 @@ void loop() {
       backlightTimer = millis();
     }else{
       if(!isMenuOpen){
-        currentMenu = mainMenu;
-        currentMenuLength = 6;
-        isMenuOpen = true;
-        menuOption = 0;
-        renderMenu(currentMenu, 0);
+        changeMenu(mainMenu, 6);
       }else{
         currentMenu[menuOption].executeCallback();
       }
