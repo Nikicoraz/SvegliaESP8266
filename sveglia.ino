@@ -153,7 +153,7 @@ void changeMenu(MenuItem* menu, int length){
 
 ICACHE_RAM_ATTR void encoderRotateInterrupt() {
   if(genericCount){
-    if(!genericDelay){
+    if(!genericDelay){    // This is because you can't do delays in functions nested too deep :(
       if(digitalRead(DT)){
         genericCouter--;
       }else{
@@ -223,7 +223,7 @@ void setupAlarmDayCallback(){
 
   int min = 0, h = 0;
   char buffer[5]; // "0" "0" ":" "0" "0" "\0"
-  // Impostazione ora
+  // Hour
   do{
     if(genericCouter < 0){
       genericCouter = 23;
@@ -236,6 +236,7 @@ void setupAlarmDayCallback(){
   }while(digitalRead(SW));
   genericCouter = 0;
   
+  // Minutes
   do{
     if(genericCouter < 0){
       genericCouter = 23;
@@ -248,6 +249,8 @@ void setupAlarmDayCallback(){
   }while(digitalRead(SW));
 
   genericCount = false;
+  // TODO: Set the alarm and save to flash
+
   changeMenu(alarmMenu, 10);
 }
 
