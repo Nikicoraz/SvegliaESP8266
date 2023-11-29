@@ -103,16 +103,13 @@ void updateNTPTime() {
   Serial.printf("Was %02d:%02d:%02d", hours, minutes, seconds);
 
   connectWifi();
-  timeClient.begin();
-  do{
-    timeClient.update();
-    seconds = timeClient.getSeconds();
-    minutes = timeClient.getMinutes();
-    hours = timeClient.getHours();
-    day = timeClient.getDay();
-    Serial.printf("Is now %02d:%02d:%02d", hours, minutes, seconds);
-  }while(hours == 1 && seconds == 6); // When the update fails it sets hours = 1 and seconds = 6 ???? I should change it later...
-
+timeClient.begin();
+  while(!timeClient.update()){} // Retry until the update succeds
+  seconds = timeClient.getSeconds();
+  minutes = timeClient.getMinutes();
+  hours = timeClient.getHours();
+  day = timeClient.getDay();
+  Serial.printf("Is now %02d:%02d:%02d", hours, minutes, seconds);
 
   timeClient.end();
   WiFi.disconnect();
