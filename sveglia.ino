@@ -30,6 +30,7 @@ byte hours = 0;
 byte day = 0;
 
 char daysOfTheWeek[7][12] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
+byte alarmTimes[7][2] = { {0,0} };
 
 // Define NTP Client to get time
 WiFiUDP ntpUDP;
@@ -47,10 +48,20 @@ int currentMenuLength;
 int menuOption = 0;
 int firstMenuOption = 0;
 byte isMenuOpen = false;
+int genericCouter;
+bool genericCount = false;
+bool genericDelay = false;
 
 //
 // --- GENERAL FUNCTIONS ---
 //
+
+void millisDelay(int delay){
+  unsigned long temp = millis();
+  while(temp - millis() < delay) {
+  }
+  return;
+}
 
 int calculateCenterTextColumnStart(int length) {
   return (columns - length) / 2;
@@ -141,7 +152,16 @@ void changeMenu(MenuItem* menu, int length){
 }
 
 ICACHE_RAM_ATTR void encoderRotateInterrupt() {
-  if(isMenuOpen){
+  if(genericCount){
+    if(!genericDelay){
+      if(digitalRead(DT)){
+        genericCouter--;
+      }else{
+        genericCouter++;
+      }
+      genericDelay = true;
+    }
+  }else if(isMenuOpen){
     // Change the current menu option
     if(digitalRead(DT)){
       if (menuOption > 0) menuOption--;
@@ -194,24 +214,40 @@ void setupAlarmCallback(){
 
 void setupAlarmDayCallback(){
   int selectedDay = menuOption;
+  genericCount = true;
+  genericCouter = 0;
   lcd.clear();
   lcd.noCursor();
-  delay(100);
   centerPrint("Alarm time");
-  
-  int min = 0, h = 0;
-  menuOption = 0;
-  char buffer[5];
-  do{
-    Serial.printf("min %d\n", min);
-    min = abs(menuOption % 60);
-    sprintf(buffer, "%02d:%02d", min, h);
-    centerPrint(buffer, 1);
-    yield();
-    delay(150);
-  }while(digitalRead(SW));
-  delay(50);
+  delay(200);
 
+  int min = 0, h = 0;
+  char buffer[5]; // "0" "0" ":" "0" "0" "\0"
+  // Impostazione ora
+  do{
+    if(genericCouter < 0){
+      genericCouter = 23;
+    }
+    h = genericCouter % 24;
+    sprintf(buffer, "%02d:%02d", h, min);
+    centerPrint(buffer, 1);
+    delay(200);
+    genericDelay = false;
+  }while(digitalRead(SW));
+  genericCouter = 0;
+  
+  do{
+    if(genericCouter < 0){
+      genericCouter = 23;
+    }
+    min = genericCouter % 60;
+    sprintf(buffer, "%02d:%02d", h, min);
+    centerPrint(buffer, 1);
+    delay(200);
+    genericDelay = false;
+  }while(digitalRead(SW));
+
+  genericCount = false;
   changeMenu(alarmMenu, 10);
 }
 
