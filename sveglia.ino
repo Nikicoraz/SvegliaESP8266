@@ -13,8 +13,9 @@
 #include <LiquidCrystal_I2C.h>
 #include <NTPClient.h>
 #include <ESP8266WiFi.h>
-#include "secrets.h"
 #include <WiFiUdp.h>
+#include <EEPROM.h>
+#include "secrets.h"
 #include "menu.h"
 
 const char* SSID = SECRET_SSID;
@@ -30,7 +31,11 @@ byte hours = 0;
 byte day = 0;
 
 char daysOfTheWeek[7][12] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
-byte alarmTimes[7][2] = { {0,0} };
+
+// For unset hour set to 255
+byte alarmTimes[7][2] = { {255,255}, {255,255}, {255,255}, {255,255}, {255,255}, {255,255}, {255,255} };
+
+byte currentAlarm[2];
 
 // Define NTP Client to get time
 WiFiUDP ntpUDP;
@@ -55,6 +60,15 @@ bool genericDelay = false;
 //
 // --- GENERAL FUNCTIONS ---
 //
+
+bool saveAlarmsToEEPROM(){
+  EEPROM.put(0, alarmTimes);
+  return EEPROM.commit();
+}
+
+void loadAlarmsFromEEPROM(){
+  EEPROM.get(0, alarmTimes);
+}
 
 void millisDelay(int delay){
   unsigned long temp = millis();
@@ -210,7 +224,7 @@ void setupAlarmCallback(){
 }
 
 void setupAlarmDayCallback(){
-  int selectedDay = menuOption;
+  int selectedDay = menuOption - 1;
   genericCount = true;
   genericCouter = 0;
   lcd.clear();
@@ -228,7 +242,7 @@ void setupAlarmDayCallback(){
     h = genericCouter % 24;
     sprintf(buffer, "%02d:%02d", h, min);
     centerPrint(buffer, 1);
-    delay(200);
+    delay(50);
     genericDelay = false;
   }while(digitalRead(SW));
   genericCouter = 0;
@@ -236,7 +250,7 @@ void setupAlarmDayCallback(){
   // Minutes
   do{
     if(genericCouter < 0){
-      genericCouter = 23;
+      genericCouter = 59;
     }
     min = genericCouter % 60;
     sprintf(buffer, "%02d:%02d", h, min);
@@ -246,17 +260,43 @@ void setupAlarmDayCallback(){
   }while(digitalRead(SW));
 
   genericCount = false;
-  // TODO: Set the alarm and save to flash
+  // Set the alarm and save to flash
+  switch(selectedDay){
+    case 0:
+      for (int i = 0; i < 5; i++) {
+        alarmTimes[i + 1][0] = h;
+        alarmTimes[i + 1][1] = min;
+      }
+      break;
+    case 1:
+      alarmTimes[6][0] = h;
+      alarmTimes[6][1] = min;
+      alarmTimes[0][0] = h;
+      alarmTimes[0][1] = min;
+      break;
+    case 2: case 3: case 4: case 5: case 6: case 7: case 8:
+      alarmTimes[(selectedDay - 2 + 1) % 7][0] = h;
+      alarmTimes[(selectedDay - 2 + 1) % 7][1] = min;
+      break;
+    default:
+      Serial.println("How did we even get to this index??");
+      exit(999);
+      break;
+  }
+
+  saveAlarmsToEEPROM();
+  Serial.println("Saved alarms to flash!");
 
   changeMenu(alarmMenu, 10);
 }
 
-MenuItem mainMenu[] = {
-  MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Modify tmrw's alarm"), MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time", updateTimeCallback)
+const byte mainMenuLength = 7;
+MenuItem mainMenu[mainMenuLength] = {
+  MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Remove alarm"), MenuItem("Modify tmrw's alarm"), MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time", updateTimeCallback)
 };
 
 void alarmMenuBackCallback(){
-  changeMenu(mainMenu, 6);
+  changeMenu(mainMenu, mainMenuLength);
 }
 
 // Custom chars
@@ -273,6 +313,7 @@ byte downArrow[] = {
 
 void setup() {
   Serial.begin(115200);  // Start serial communication at 115200 baud
+  EEPROM.begin(64);
 
   pinMode(ledPin, OUTPUT);
   pinMode(buzzerPin, OUTPUT);
@@ -288,12 +329,19 @@ void setup() {
   lcd.createChar(0, downArrow);
   toggleBacklight();
   centerPrint("Connecting...", 1);
+  Serial.print("\n\nStarting...");
 
-  Serial.println("\nStart\n\n");
-  Serial.println("Ciao");
+  loadAlarmsFromEEPROM();
+  Serial.println("Loaded alarms from EEPROM");
+
+  // TODO: Remove and load from memory tomorrow's alarm
+  for(int i = 0; i < 7; i++){
+    Serial.printf("%s -> hour: %d minute: %d\n", daysOfTheWeek[i], alarmTimes[i][0], alarmTimes[i][1]);
+  }
 
   // Encoder
   attachInterrupt(digitalPinToInterrupt(14), encoderRotateInterrupt, FALLING);
+
 }
 
 const int NTPUpdateMillis = 1000 * 60 * 10;  // Update every 10 minutes
@@ -349,7 +397,7 @@ void loop() {
       backlightTimer = millis();
     }else{
       if(!isMenuOpen){
-        changeMenu(mainMenu, 6);
+        changeMenu(mainMenu, mainMenuLength);
       }else{
         currentMenu[menuOption].executeCallback();
       }
