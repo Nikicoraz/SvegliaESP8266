@@ -219,6 +219,12 @@ MenuItem alarmMenu[] = {
   MenuItem("Friday", setupAlarmDayCallback), MenuItem("Saturday", setupAlarmDayCallback),   MenuItem("Sunday", setupAlarmDayCallback)
 };
 
+MenuItem removeAlarmMenu[] = {
+  MenuItem("Back", alarmMenuBackCallback), MenuItem("Weekdays", removeAlarmDayCallback), MenuItem("Weekend", removeAlarmDayCallback), MenuItem("Monday", removeAlarmDayCallback), 
+  MenuItem("Tuesday", removeAlarmDayCallback),  MenuItem("Wednesday", removeAlarmDayCallback), MenuItem("Thursday", removeAlarmDayCallback), 
+  MenuItem("Friday", removeAlarmDayCallback), MenuItem("Saturday", removeAlarmDayCallback),   MenuItem("Sunday", removeAlarmDayCallback)
+};
+
 void setupAlarmCallback(){
   changeMenu(alarmMenu, 10);
 }
@@ -292,11 +298,53 @@ void setupAlarmDayCallback(){
 
 const byte mainMenuLength = 7;
 MenuItem mainMenu[mainMenuLength] = {
-  MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Remove alarm"), MenuItem("Modify tmrw's alarm"), MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time", updateTimeCallback)
+  MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Remove alarm", removeAlarmCallback), MenuItem("Modify tmrw's alarm"), MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time", updateTimeCallback)
 };
 
 void alarmMenuBackCallback(){
   changeMenu(mainMenu, mainMenuLength);
+}
+
+void removeAlarmCallback(){
+  changeMenu(removeAlarmMenu, 10);
+}
+
+void removeAlarmDayCallback(){
+  int selectedDay = menuOption - 1;
+
+  // Set the alarm and save to flash
+  switch(selectedDay){
+    case 0:
+      for (int i = 0; i < 5; i++) {
+        alarmTimes[i + 1][0] = 255;
+        alarmTimes[i + 1][1] = 255;
+      }
+      break;
+    case 1:
+      alarmTimes[6][0] = 255;
+      alarmTimes[6][1] = 255;
+      alarmTimes[0][0] = 255;
+      alarmTimes[0][1] = 255;
+      break;
+    case 2: case 3: case 4: case 5: case 6: case 7: case 8:
+      alarmTimes[(selectedDay - 2 + 1) % 7][0] = 255;
+      alarmTimes[(selectedDay - 2 + 1) % 7][1] = 255;
+      break;
+    default:
+      Serial.println("How did we even get to this index??");
+      exit(999);
+      break;
+  }
+
+  saveAlarmsToEEPROM();
+  Serial.println("Saved alarms to flash!");
+
+  lcd.clear();
+  lcd.noCursor();
+  centerPrint("Alarm removed", 1);
+  delay(1000);
+
+  changeMenu(alarmMenu, 10);
 }
 
 // Custom chars
