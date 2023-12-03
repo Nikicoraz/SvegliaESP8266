@@ -36,6 +36,7 @@ char daysOfTheWeek[7][12] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thurs
 byte alarmTimes[7][2] = { {255,255}, {255,255}, {255,255}, {255,255}, {255,255}, {255,255}, {255,255} };
 
 byte currentAlarm[2];
+bool alarmSounded = false;
 
 // Define NTP Client to get time
 WiFiUDP ntpUDP;
@@ -46,6 +47,7 @@ const byte columns = 20;
 const byte rows = 4;
 LiquidCrystal_I2C lcd(0x27, columns, rows);
 byte isBacklightOn = 0;
+long long int backlightTimer = millis();
 
 // Menu
 MenuItem* currentMenu = nullptr;
@@ -117,7 +119,7 @@ void updateNTPTime() {
   Serial.printf("Was %02d:%02d:%02d", hours, minutes, seconds);
 
   connectWifi();
-timeClient.begin();
+  timeClient.begin();
   while(!timeClient.update()){} // Retry until the update succeds
   seconds = timeClient.getSeconds();
   minutes = timeClient.getMinutes();
@@ -199,6 +201,31 @@ int abs(int x){
   return x > 0 ? x : -x;
 }
 
+void playAlarm(){
+  MenuItem* prev;
+  int length;
+  if(isMenuOpen){
+    prev = currentMenu;
+    length = currentMenuLength;
+  }
+  alarmSounded = true;
+
+  isBacklightOn = true;
+  backlightTimer = millis();
+  lcd.backlight();
+  lcd.clear();
+  centerPrint("WAKE UP!", 1);
+
+  do{
+    tone(buzzerPin, 5000, 1000);
+    delay(1200);
+  }while(digitalRead(SW));
+
+  if(isMenuOpen){
+    changeMenu(prev, length);
+  }
+}
+
 // 
 //  --- CALLBACKS ---
 //
@@ -252,6 +279,7 @@ void setupAlarmDayCallback(){
     genericDelay = false;
   }while(digitalRead(SW));
   genericCouter = 0;
+  delay(100);
   
   // Minutes
   do{
@@ -261,7 +289,7 @@ void setupAlarmDayCallback(){
     min = genericCouter % 60;
     sprintf(buffer, "%02d:%02d", h, min);
     centerPrint(buffer, 1);
-    delay(200);
+    delay(50);
     genericDelay = false;
   }while(digitalRead(SW));
 
@@ -396,9 +424,17 @@ const int NTPUpdateMillis = 1000 * 60 * 10;  // Update every 10 minutes
 
 long long int prev = 0;
 long long int lastTimeUpdate = -NTPUpdateMillis;
-long long int backlightTimer = millis();
 
 void loop() {
+  // It's time
+  if(alarmTimes[day][0] == hours && alarmTimes[day][1] == minutes){
+    if(!alarmSounded){
+      playAlarm();
+    }
+  }else{
+    alarmSounded = false;
+  }
+
   if(!isMenuOpen){
     // Turn off backlight after 10 seconds
     if (isBacklightOn && millis() - backlightTimer > 10000) {
@@ -422,6 +458,7 @@ void loop() {
       minutes += 1;
       if (minutes == 60) {
         minutes = 0;
+        alarmSounded = false;
         hours += 1;
         if (hours == 24) {
           hours = 0;
