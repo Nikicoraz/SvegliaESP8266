@@ -34,8 +34,9 @@ char daysOfTheWeek[7][12] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thurs
 
 // For unset hour set to 255
 byte alarmTimes[7][2] = { {255,255}, {255,255}, {255,255}, {255,255}, {255,255}, {255,255}, {255,255} };
+byte nextAlarm[2] = {255, 255};
+int nextDay = -1;
 
-byte currentAlarm[2];
 bool alarmSounded = false;
 
 // Define NTP Client to get time
@@ -65,11 +66,15 @@ bool genericDelay = false;
 
 bool saveAlarmsToEEPROM(){
   EEPROM.put(0, alarmTimes);
+  EEPROM.put(16, nextAlarm);
+  EEPROM.put(19, nextDay);
   return EEPROM.commit();
 }
 
 void loadAlarmsFromEEPROM(){
   EEPROM.get(0, alarmTimes);
+  EEPROM.get(16, nextAlarm);
+  EEPROM.get(19, nextDay);
 }
 
 void millisDelay(int delay){
@@ -226,38 +231,8 @@ void playAlarm(){
   }
 }
 
-// 
-//  --- CALLBACKS ---
-//
-
-void updateTimeCallback(){
-  lcd.clear();
-  lcd.noCursor();
-  centerPrint("Updating time...", 1);
-
-  updateNTPTime();
-  closeMenu();
-}
-
-
-MenuItem alarmMenu[] = {
-  MenuItem("Back", alarmMenuBackCallback), MenuItem("Weekdays", setupAlarmDayCallback), MenuItem("Weekend", setupAlarmDayCallback), MenuItem("Monday", setupAlarmDayCallback), 
-  MenuItem("Tuesday", setupAlarmDayCallback),  MenuItem("Wednesday", setupAlarmDayCallback), MenuItem("Thursday", setupAlarmDayCallback), 
-  MenuItem("Friday", setupAlarmDayCallback), MenuItem("Saturday", setupAlarmDayCallback),   MenuItem("Sunday", setupAlarmDayCallback)
-};
-
-MenuItem removeAlarmMenu[] = {
-  MenuItem("Back", alarmMenuBackCallback), MenuItem("Weekdays", removeAlarmDayCallback), MenuItem("Weekend", removeAlarmDayCallback), MenuItem("Monday", removeAlarmDayCallback), 
-  MenuItem("Tuesday", removeAlarmDayCallback),  MenuItem("Wednesday", removeAlarmDayCallback), MenuItem("Thursday", removeAlarmDayCallback), 
-  MenuItem("Friday", removeAlarmDayCallback), MenuItem("Saturday", removeAlarmDayCallback),   MenuItem("Sunday", removeAlarmDayCallback)
-};
-
-void setupAlarmCallback(){
-  changeMenu(alarmMenu, 10);
-}
-
-void setupAlarmDayCallback(){
-  int selectedDay = menuOption - 1;
+int* selectAlarmTime(){
+  int* ret = (int*)malloc(sizeof(int) * 2);
   genericCount = true;
   genericCouter = 0;
   lcd.clear();
@@ -294,6 +269,68 @@ void setupAlarmDayCallback(){
   }while(digitalRead(SW));
 
   genericCount = false;
+  ret[0] = h;
+  ret[1] = min;
+
+  return ret;
+}
+
+int timeEquals(int h1, int min1, int h2, int min2){
+  if(h1 == h2){
+    if(min1 == min2){
+      return 0;
+    }else if(min1 > min2){
+      return 1;
+    }else{
+      return -1;
+    }
+  }else if(h1 > h2){
+    return 1;
+  }else{
+    return -1;
+  }
+}
+
+void changeToMainMenu();
+
+// 
+//  --- CALLBACKS ---
+//
+
+void updateTimeCallback(){
+  lcd.clear();
+  lcd.noCursor();
+  centerPrint("Updating time...", 1);
+
+  updateNTPTime();
+  closeMenu();
+}
+
+
+MenuItem alarmMenu[] = {
+  MenuItem("Back", alarmMenuBackCallback), MenuItem("Weekdays", setupAlarmDayCallback), MenuItem("Weekend", setupAlarmDayCallback), MenuItem("Monday", setupAlarmDayCallback), 
+  MenuItem("Tuesday", setupAlarmDayCallback),  MenuItem("Wednesday", setupAlarmDayCallback), MenuItem("Thursday", setupAlarmDayCallback), 
+  MenuItem("Friday", setupAlarmDayCallback), MenuItem("Saturday", setupAlarmDayCallback),   MenuItem("Sunday", setupAlarmDayCallback)
+};
+
+MenuItem removeAlarmMenu[] = {
+  MenuItem("Back", alarmMenuBackCallback), MenuItem("Weekdays", removeAlarmDayCallback), MenuItem("Weekend", removeAlarmDayCallback), MenuItem("Monday", removeAlarmDayCallback), 
+  MenuItem("Tuesday", removeAlarmDayCallback),  MenuItem("Wednesday", removeAlarmDayCallback), MenuItem("Thursday", removeAlarmDayCallback), 
+  MenuItem("Friday", removeAlarmDayCallback), MenuItem("Saturday", removeAlarmDayCallback),   MenuItem("Sunday", removeAlarmDayCallback)
+};
+
+void setupAlarmCallback(){
+  changeMenu(alarmMenu, 10);
+}
+
+void setupAlarmDayCallback(){
+  int selectedDay = menuOption - 1;
+  int* time = selectAlarmTime();
+  int h = time[0];
+  int min = time[1];
+
+  free(time);
+
   // Set the alarm and save to flash
   switch(selectedDay){
     case 0:
@@ -324,9 +361,31 @@ void setupAlarmDayCallback(){
   changeMenu(alarmMenu, 10);
 }
 
+void nextAlarmCallback(){
+  int* time = selectAlarmTime();
+  int h = time[0];
+  int min = time[1];
+
+  nextAlarm[0] = h;
+  nextAlarm[1] = min; 
+  int temp = timeEquals(h, min, alarmTimes[day][0], alarmTimes[day][1]);
+
+  free(time);
+
+
+  if(temp == 1){
+    nextDay = day + 1;
+  }else{
+    nextDay = day;
+  }
+
+  saveAlarmsToEEPROM();
+  changeToMainMenu();
+}
+
 const byte mainMenuLength = 7;
 MenuItem mainMenu[mainMenuLength] = {
-  MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Remove alarm", removeAlarmCallback), MenuItem("Modify tmrw's alarm"), MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time", updateTimeCallback)
+  MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Remove alarm", removeAlarmCallback), MenuItem("Modify next alarm", nextAlarmCallback), MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time", updateTimeCallback)
 };
 
 void alarmMenuBackCallback(){
@@ -375,6 +434,10 @@ void removeAlarmDayCallback(){
   changeMenu(alarmMenu, 10);
 }
 
+void changeToMainMenu(){
+  changeMenu(mainMenu, mainMenuLength);
+}
+
 // Custom chars
 byte downArrow[] = {
   B00000,
@@ -414,6 +477,8 @@ void setup() {
   for(int i = 0; i < 7; i++){
     Serial.printf("%s -> hour: %d minute: %d\n", daysOfTheWeek[i], alarmTimes[i][0], alarmTimes[i][1]);
   }
+  Serial.printf("Next alarm -> h: %d min: %d\nNext day %d\n", nextAlarm[0], nextAlarm[1], nextDay);
+
 
   // Encoder
   attachInterrupt(digitalPinToInterrupt(14), encoderRotateInterrupt, FALLING);
@@ -427,9 +492,15 @@ long long int lastTimeUpdate = -NTPUpdateMillis;
 
 void loop() {
   // It's time
-  if(alarmTimes[day][0] == hours && alarmTimes[day][1] == minutes){
+  if((alarmTimes[day][0] == hours && alarmTimes[day][1] == minutes) || (nextAlarm[0] == hours && nextAlarm[1] == minutes && nextDay == day)){
     if(!alarmSounded){
       playAlarm();
+    }
+    if(nextAlarm[0] != 255 || nextAlarm[1] != 255 || nextDay != -1){
+      nextAlarm[0] = 255;
+      nextAlarm[1] = 255;
+      nextDay = -1;
+      saveAlarmsToEEPROM();
     }
   }else{
     alarmSounded = false;
