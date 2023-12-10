@@ -14,6 +14,7 @@
 #include <NTPClient.h>
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
+#include <ESP8266Client.h>
 #include <EEPROM.h>
 #include "secrets.h"
 #include "menu.h"
@@ -103,15 +104,17 @@ void toggleBacklight() {
 }
 
 void connectWifi() {
-  WiFi.begin(SSID, PASSWD);
+  if(WiFi.status() != WL_CONNECTED){
+    WiFi.begin(SSID, PASSWD);
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(".");
+    }
+
+    Serial.print("Connected to ");
+    Serial.println(SSID);
   }
-
-  Serial.print("Connected to ");
-  Serial.println(SSID);
 }
 
 void closeMenu(){
@@ -133,7 +136,6 @@ void updateNTPTime() {
   Serial.printf("Is now %02d:%02d:%02d", hours, minutes, seconds);
 
   timeClient.end();
-  WiFi.disconnect();
 }
 
 void renderMenu(MenuItem* menu, int firstOption, bool resetCursor = true) {
@@ -479,10 +481,9 @@ void setup() {
   }
   Serial.printf("Next alarm -> h: %d min: %d\nNext day %d\n", nextAlarm[0], nextAlarm[1], nextDay);
 
-
   // Encoder
   attachInterrupt(digitalPinToInterrupt(14), encoderRotateInterrupt, FALLING);
-
+  
 }
 
 const int NTPUpdateMillis = 1000 * 60 * 10;  // Update every 10 minutes
