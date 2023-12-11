@@ -29,6 +29,8 @@ byte seconds = 0;
 byte minutes = 0;
 byte hours = 0;
 byte day = 0;
+unsigned long ntpEpochTime;
+unsigned long ntpStart;
 
 char daysOfTheWeek[7][12] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
 
@@ -132,6 +134,8 @@ void updateNTPTime() {
   minutes = timeClient.getMinutes();
   hours = timeClient.getHours();
   day = timeClient.getDay();
+  ntpEpochTime = timeClient.getEpochTime();
+  ntpStart = millis();
   Serial.printf("Is now %02d:%02d:%02d", hours, minutes, seconds);
 
   timeClient.end();
@@ -485,6 +489,7 @@ const int NTPUpdateMillisDelay = 1000 * 60 * 10;  // Update every 10 minutes
 
 long long int prev = 0;
 long long int lastTimeUpdate = -NTPUpdateMillisDelay;
+byte prevMinutes = -1;
 
 void loop() {
   // It's time
@@ -519,20 +524,27 @@ void loop() {
     // One second has passed!
     digitalWrite(ledPin, !digitalRead(ledPin));
 
-    seconds += 1;
-    if (seconds == 60) {
-      seconds = 0;
-      minutes += 1;
-      if (minutes == 60) {
-        minutes = 0;
-        alarmSounded = false;
+
+    seconds = (ntpEpochTime + ntpStart / 1000) % 60;
+    minutes = ((int)std::floor((ntpEpochTime + ntpStart / 1000) / 60)) % 60;
+    if(prevMinutes == -1){
+      prevMinutes = minutes;
+    }
+
+    if(minutes != prevMinutes){
+      // One minute has passed
+      alarmSounded = false;
+      if (prevMinutes == 59) {
         hours += 1;
         if (hours == 24) {
           hours = 0;
           day = (day + 1) % 7;
         }
       }
+      prevMinutes = minutes;
     }
+
+    ntpStart += (millis() - ntpStart);
 
     if(!isMenuOpen){
       drawMainScreen();
