@@ -14,7 +14,6 @@
 #include <NTPClient.h>
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
-#include <ESP8266Client.h>
 #include <EEPROM.h>
 #include "secrets.h"
 #include "menu.h"
@@ -486,14 +485,14 @@ void setup() {
   
 }
 
-const int NTPUpdateMillis = 1000 * 60 * 10;  // Update every 10 minutes
+const int NTPUpdateMillisDelay = 1000 * 60 * 10;  // Update every 10 minutes
 
 long long int prev = 0;
-long long int lastTimeUpdate = -NTPUpdateMillis;
+long long int lastTimeUpdate = -NTPUpdateMillisDelay;
 
 void loop() {
   // It's time
-  if((alarmTimes[day][0] == hours && alarmTimes[day][1] == minutes) || (nextAlarm[0] == hours && nextAlarm[1] == minutes && nextDay == day)){
+  if((alarmTimes[day][0] == hours && alarmTimes[day][1] == minutes && nextDay != day) || (nextAlarm[0] == hours && nextAlarm[1] == minutes && nextDay == day)){
     if(!alarmSounded){
       playAlarm();
     }
@@ -513,7 +512,7 @@ void loop() {
       toggleBacklight();
     }
     // Time logic
-    if (millis() - lastTimeUpdate > NTPUpdateMillis) {
+    if (millis() - lastTimeUpdate > NTPUpdateMillisDelay) {
       updateNTPTime();
       lastTimeUpdate = millis();
     }
