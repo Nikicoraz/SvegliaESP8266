@@ -370,16 +370,11 @@ void nextAlarmCallback(){
 
   nextAlarm[0] = h;
   nextAlarm[1] = min; 
-  int temp = timeEquals(h, min, alarmTimes[day][0], alarmTimes[day][1]);
 
   free(time);
 
 
-  if(temp == 1){
-    nextDay = day + 1;
-  }else{
-    nextDay = day;
-  }
+  nextDay = day; // Remain from a forgotten age
 
   saveAlarmsToEEPROM();
   changeToMainMenu();
