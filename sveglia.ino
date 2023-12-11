@@ -167,6 +167,7 @@ void changeMenu(MenuItem* menu, int length){
   currentMenuLength = length;
   isMenuOpen = true;
   menuOption = 0;
+  firstMenuOption = 0;
   renderMenu(currentMenu, 0);
 }
 
