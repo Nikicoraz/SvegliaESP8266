@@ -129,7 +129,12 @@ void updateNTPTime() {
 
   connectWifi();
   timeClient.begin();
-  while(!timeClient.update()){} // Retry until the update succeds
+  while(!timeClient.update()){
+    delay(50);
+    if(timeClient.forceUpdate()){   // Try to force the update since it only updates every 60 secs
+      break;
+    }
+  } // Retry until the update succeds
   seconds = timeClient.getSeconds();
   minutes = timeClient.getMinutes();
   hours = timeClient.getHours();
@@ -489,7 +494,7 @@ const int NTPUpdateMillisDelay = 1000 * 60 * 10;  // Update every 10 minutes
 
 long long int prev = 0;
 long long int lastTimeUpdate = -NTPUpdateMillisDelay;
-byte prevMinutes = -1;
+byte prevSeconds = -1;
 
 void loop() {
   // It's time
@@ -525,26 +530,27 @@ void loop() {
     digitalWrite(ledPin, !digitalRead(ledPin));
 
 
-    seconds = (ntpEpochTime + ntpStart / 1000) % 60;
-    minutes = ((int)std::floor((ntpEpochTime + ntpStart / 1000) / 60)) % 60;
-    if(prevMinutes == -1){
-      prevMinutes = minutes;
+    seconds = (ntpEpochTime + ((millis() - ntpStart) / 1000)) % 60;
+    if(prevSeconds == -1){
+      prevSeconds = seconds;
     }
 
-    if(minutes != prevMinutes){
-      // One minute has passed
-      alarmSounded = false;
-      if (prevMinutes == 59) {
-        hours += 1;
-        if (hours == 24) {
-          hours = 0;
-          day = (day + 1) % 7;
+    if(seconds != prevSeconds){
+      // One seconds has passed
+      if(prevSeconds == 59){
+        minutes += 1;
+        alarmSounded = false;
+        if (minutes == 60) {
+          minutes = 0;
+          hours += 1;
+          if (hours == 24) {
+            hours = 0;
+            day = (day + 1) % 7;
+          }
         }
       }
-      prevMinutes = minutes;
+      prevSeconds = seconds;
     }
-
-    ntpStart += (millis() - ntpStart);
 
     if(!isMenuOpen){
       drawMainScreen();
