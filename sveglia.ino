@@ -148,7 +148,8 @@ void updateNTPTime() {
 
 void renderMenu(MenuItem* menu, int firstOption, bool resetCursor = true) {
   lcd.clear();
-  for (int i = firstOption; i < firstOption + 4; i++) {
+  int bound = currentMenuLength > 4 ? (firstOption + 4) : currentMenuLength;
+  for (int i = firstOption; i < bound; i++) {
     lcd.setCursor(0, i - firstOption);
     lcd.print(menu[i].getText().c_str());
     if (i == firstOption + 3) {
@@ -162,6 +163,41 @@ void renderMenu(MenuItem* menu, int firstOption, bool resetCursor = true) {
   }
 }
 
+int* getNextAlarmTime(){
+  bool set = false;
+
+  int* ret = (int*)malloc(sizeof(int) * 3);
+  for(int i = 0; i < 7; i++){
+    int alarmHour, alarmMinutes, alarmDay;
+
+    alarmDay = (i + day) % 7;
+    alarmHour = alarmTimes[alarmDay][0];
+    alarmMinutes = alarmTimes[alarmDay][1];
+    if(alarmHour != 255 && (timeEquals(hours, minutes, alarmHour, alarmMinutes) == -1 || alarmDay != day)){
+      ret[0] = alarmDay;
+      ret[1] = alarmHour;
+      ret[2] = alarmMinutes;
+      set = true;
+      break;
+    }
+  }
+
+  if((!set && nextDay != 255) || (nextDay < ret[0]) ||
+    (nextDay == ret[0] && timeEquals(nextAlarm[0], nextAlarm[1], ret[1], ret[2]) == -1)){
+
+    ret[0] = nextDay;
+    ret[1] = nextAlarm[0];
+    ret[2] = nextAlarm[1];
+    set = true;
+  }
+
+  if(!set){
+    ret[0] = 255;
+  }
+  
+  return ret;
+}
+
 void drawMainScreen(){
   lcd.clear();
   lcd.noCursor();
@@ -169,6 +205,17 @@ void drawMainScreen(){
   // The length of the time is always 8 chars with seconds
   lcd.setCursor(calculateCenterTextColumnStart(8), 0);
   lcd.printf("%02d:%02d:%02d", hours, minutes, seconds);
+
+
+  int* nextAlarm = getNextAlarmTime();
+  if(nextAlarm[0] != 255){
+    centerPrint("Next alarm:", 2);
+  
+    char buffer[columns + 1];
+    sprintf(buffer, "%02d:%02d %s", nextAlarm[1], nextAlarm[2], daysOfTheWeek[nextAlarm[0]]);
+    centerPrint(buffer, 3);
+  }
+  free(nextAlarm);
 }
 
 void changeMenu(MenuItem* menu, int length){
@@ -372,6 +419,10 @@ void setupAlarmDayCallback(){
   changeMenu(alarmMenu, 10);
 }
 
+void nextAlarmDaySelectCallback();
+
+MenuItem nextAlarmTempMenu[2] = { MenuItem("Today", nextAlarmDaySelectCallback), MenuItem("Tomorrow", nextAlarmDaySelectCallback) };
+
 void nextAlarmCallback(){
   int* time = selectAlarmTime();
   int h = time[0];
@@ -379,19 +430,29 @@ void nextAlarmCallback(){
 
   nextAlarm[0] = h;
   nextAlarm[1] = min; 
-
   free(time);
 
+  changeMenu(nextAlarmTempMenu, 2);
+}
 
-  nextDay = day; // Remain from a forgotten age
+//       |
+//       |
+//       ↓
+
+void nextAlarmDaySelectCallback(){
+  if(menuOption == 0){
+    nextDay = day;
+  }else{
+    nextDay = day + 1;
+  }
 
   saveAlarmsToEEPROM();
   changeToMainMenu();
 }
 
-const byte mainMenuLength = 7;
+const byte mainMenuLength = 8;
 MenuItem mainMenu[mainMenuLength] = {
-  MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Remove alarm", removeAlarmCallback), MenuItem("Modify next alarm", nextAlarmCallback), MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time", updateTimeCallback)
+  MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Modify next alarm", nextAlarmCallback), MenuItem("Remove next alarm", removeNextAlarmCallback), MenuItem("Remove alarm", removeAlarmCallback), MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time", updateTimeCallback)
 };
 
 void alarmMenuBackCallback(){
@@ -438,6 +499,21 @@ void removeAlarmDayCallback(){
   delay(1000);
 
   changeMenu(alarmMenu, 10);
+}
+
+void removeNextAlarmCallback(){
+  nextDay = 255;
+  nextAlarm[1] = 255;
+  nextAlarm[2] = 255;
+
+  saveAlarmsToEEPROM();
+
+  lcd.clear();
+  lcd.noCursor();
+  centerPrint("Next alarm removed", 1);
+  delay(1000);
+
+  changeToMainMenu();
 }
 
 void changeToMainMenu(){
