@@ -527,8 +527,6 @@ void loop() {
   }
   if (millis() - prev > 1000) {
     // One second has passed!
-    digitalWrite(ledPin, !digitalRead(ledPin));
-
 
     seconds = (ntpEpochTime + ((millis() - ntpStart) / 1000)) % 60;
     if(prevSeconds == -1){
