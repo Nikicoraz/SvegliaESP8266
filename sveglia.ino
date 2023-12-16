@@ -402,13 +402,13 @@ void testAlarmCallback(){
 
 MenuItem alarmConfirmMenu[3] = { MenuItem("Set", confirmAlarmCallback), MenuItem("Cancel", confirmAlarmCallback), MenuItem("Test", testAlarmCallback) };
 
-void changeAlarmSoundCallback(){
-  tempAlarm = menuOption;
-  changeMenu(alarmConfirmMenu, 3);  
-}
+const byte alarmSelectMenuLength = 3;
+MenuItem alarmSelectMenu[alarmSelectMenuLength] = { MenuItem("Back", changeToMainMenu), MenuItem("Default alarm", changeAlarmSoundCallback), MenuItem("Rapid fire alarm", changeAlarmSoundCallback)};
 
-const byte alarmSelectMenuLength = 2;
-MenuItem alarmSelectMenu[alarmSelectMenuLength] = { MenuItem("Default alarm", changeAlarmSoundCallback), MenuItem("Rapid fire alarm", changeAlarmSoundCallback)};
+void changeAlarmSoundCallback(){
+  tempAlarm = menuOption - 1;
+  changeMenu(alarmConfirmMenu, 3);
+}
 
 void changeAlarmCallback(){
   changeMenu(alarmSelectMenu, alarmSelectMenuLength);
