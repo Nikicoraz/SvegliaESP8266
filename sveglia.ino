@@ -4,7 +4,6 @@
   Email: nicolacorato05@gmail.com
 
 */
-#define ledPin D8
 #define buzzerPin D7
 #define SW D3
 #define DT D6
@@ -536,7 +535,6 @@ void setup() {
   Serial.begin(115200);  // Start serial communication at 115200 baud
   EEPROM.begin(64);
 
-  pinMode(ledPin, OUTPUT);
   pinMode(buzzerPin, OUTPUT);
   pinMode(CLK, INPUT);
   pinMode(SW, INPUT_PULLUP);
