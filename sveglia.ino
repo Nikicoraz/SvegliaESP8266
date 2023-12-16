@@ -4,7 +4,6 @@
   Email: nicolacorato05@gmail.com
 
 */
-#define buzzerPin D7
 #define SW D3
 #define DT D6
 #define CLK D5
@@ -417,8 +416,10 @@ void testAlarmCallback(){
 
 MenuItem alarmConfirmMenu[3] = { MenuItem("Set", confirmAlarmCallback), MenuItem("Cancel", confirmAlarmCallback), MenuItem("Test", testAlarmCallback) };
 
-const byte alarmSelectMenuLength = 3;
-MenuItem alarmSelectMenu[alarmSelectMenuLength] = { MenuItem("Back", changeToMainMenu), MenuItem("Default alarm", changeAlarmSoundCallback), MenuItem("Rapid fire alarm", changeAlarmSoundCallback)};
+const byte alarmSelectMenuLength = 6;
+MenuItem alarmSelectMenu[alarmSelectMenuLength] = { MenuItem("Back", changeToMainMenu), MenuItem("Default alarm", changeAlarmSoundCallback),
+                                MenuItem("Rapid fire alarm", changeAlarmSoundCallback), MenuItem("Uneven alarm", changeAlarmSoundCallback),
+                                MenuItem("Scale alarm", changeAlarmSoundCallback), MenuItem("Double tone alarm", changeAlarmSoundCallback) };
 
 void confirmAlarmCallback(){
   if(menuOption == 0){
