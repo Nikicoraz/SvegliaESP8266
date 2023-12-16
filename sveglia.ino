@@ -209,8 +209,8 @@ int* getNextAlarmTime(){
 
   if((
     (!set) || 
-    (((nextDay < ret[0]) || (ret[0] < day)) && nextDay >= day) ||
-    (nextDay == ret[0] && timeEquals(nextAlarm[0], nextAlarm[1], ret[1], ret[2]) == 1)
+    ((nextDay < ret[0]) || (ret[0] < day && nextDay >= day))  ||
+    (nextDay == ret[0] && timeEquals(nextAlarm[0], nextAlarm[1], ret[1], ret[2]) == -1)
   ) && (nextDay != -1)){
 
     ret[0] = nextDay;
