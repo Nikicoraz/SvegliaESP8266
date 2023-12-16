@@ -67,17 +67,46 @@ bool genericDelay = false;
 // --- GENERAL FUNCTIONS ---
 //
 
+// 79 is a random prime number check
+const byte EEPROMCheckValue = 79;
+void generalSaveCheck(){
+  byte temp;
+  EEPROM.get(0, temp);
+  if(temp != EEPROMCheckValue){
+    EEPROM.put(0, EEPROMCheckValue);
+  }
+}
+
 bool saveAlarmsToEEPROM(){
-  EEPROM.put(0, alarmTimes);
-  EEPROM.put(16, nextAlarm);
-  EEPROM.put(19, nextDay);
+  generalSaveCheck();
+  EEPROM.put(1, alarmTimes);
+  EEPROM.put(17, nextAlarm);
+  EEPROM.put(20, nextDay);
+  return EEPROM.commit();
+}
+
+bool saveAlarmThemeToEEPROM(){
+  generalSaveCheck();
+  EEPROM.put(24, selectedAlarm);
   return EEPROM.commit();
 }
 
 void loadAlarmsFromEEPROM(){
-  EEPROM.get(0, alarmTimes);
-  EEPROM.get(16, nextAlarm);
-  EEPROM.get(19, nextDay);
+  byte check;
+  EEPROM.get(0, check);
+  if(check == EEPROMCheckValue){
+    // Alarm times
+    EEPROM.get(1, alarmTimes);
+    EEPROM.get(17, nextAlarm);
+    EEPROM.get(20, nextDay);
+
+    // Alarm theme
+    EEPROM.get(24, selectedAlarm);
+    Serial.println("Loaded alarms from EEPROM");
+
+  }else{
+    Serial.println("EEPROM not initialized yet");
+  }
 }
 
 void millisDelay(int delay){
@@ -384,16 +413,10 @@ void updateTimeCallback(){
 }
 
 byte tempAlarm;
-void confirmAlarmCallback(){
-  if(menuOption == 0){
-    selectedAlarm = tempAlarm;
-    // Save to EEPROM
-
-  }
-  changeToMainMenu();
-}
+void confirmAlarmCallback();
 
 void testAlarmCallback(){
+  delay(200);
   int temp = selectedAlarm;
   selectedAlarm = tempAlarm;
   playAlarm();
@@ -404,6 +427,14 @@ MenuItem alarmConfirmMenu[3] = { MenuItem("Set", confirmAlarmCallback), MenuItem
 
 const byte alarmSelectMenuLength = 3;
 MenuItem alarmSelectMenu[alarmSelectMenuLength] = { MenuItem("Back", changeToMainMenu), MenuItem("Default alarm", changeAlarmSoundCallback), MenuItem("Rapid fire alarm", changeAlarmSoundCallback)};
+
+void confirmAlarmCallback(){
+  if(menuOption == 0){
+    selectedAlarm = tempAlarm;
+    saveAlarmThemeToEEPROM();
+  }
+  changeMenu(alarmSelectMenu, alarmSelectMenuLength);
+}
 
 void changeAlarmSoundCallback(){
   tempAlarm = menuOption - 1;
@@ -584,7 +615,7 @@ byte downArrow[] = {
 
 void setup() {
   Serial.begin(115200);  // Start serial communication at 115200 baud
-  EEPROM.begin(64);
+  EEPROM.begin(64); // 0 - 22 Alarm times
 
   pinMode(buzzerPin, OUTPUT);
   pinMode(CLK, INPUT);
@@ -602,7 +633,6 @@ void setup() {
   Serial.print("\n\nStarting...");
 
   loadAlarmsFromEEPROM();
-  Serial.println("Loaded alarms from EEPROM");
 
   // TODO: Remove and load from memory tomorrow's alarm
   for(int i = 0; i < 7; i++){
