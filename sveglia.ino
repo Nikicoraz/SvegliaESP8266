@@ -109,13 +109,6 @@ void loadAlarmsFromEEPROM(){
   }
 }
 
-void millisDelay(int delay){
-  unsigned long temp = millis();
-  while(temp - millis() < delay) {
-  }
-  return;
-}
-
 int calculateCenterTextColumnStart(int length) {
   return (columns - length) / 2;
 }
@@ -151,8 +144,7 @@ void connectWifi() {
 void closeMenu(){
   isMenuOpen = false;
   if(((ntpEpochTime + ((millis() - ntpStart) / 1000)) / 60 ) % 60 != minutes){
-    minutes = ((ntpEpochTime + ((millis() - ntpStart) / 1000)) / 60 ) % 60;
-    minuteChange();
+    updateNTPTime();
   }
   drawMainScreen();
 }
@@ -645,7 +637,7 @@ void setup() {
   
 }
 
-const int NTPUpdateMillisDelay = 1000 * 60 * 10;  // Update every 10 minutes
+const int NTPUpdateMillisDelay = 1000 * 60 * 5;  // Update every 5 minutes
 
 long long int prev = 0;
 long long int lastTimeUpdate = -NTPUpdateMillisDelay;
