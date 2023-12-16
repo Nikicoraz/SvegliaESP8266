@@ -16,6 +16,7 @@
 #include <EEPROM.h>
 #include "secrets.h"
 #include "menu.h"
+#include "alarms.h"
 
 const char* SSID = SECRET_SSID;
 const char* PASSWD = SECRET_PASSWD;
@@ -39,6 +40,7 @@ byte nextAlarm[2] = {255, 255};
 int nextDay = -1;
 
 bool alarmSounded = false;
+int selectedAlarm = 0;
 
 // Define NTP Client to get time
 WiFiUDP ntpUDP;
@@ -119,6 +121,10 @@ void connectWifi() {
 
 void closeMenu(){
   isMenuOpen = false;
+  if(((ntpEpochTime + ((millis() - ntpStart) / 1000)) / 60 ) % 60 != minutes){
+    minutes = ((ntpEpochTime + ((millis() - ntpStart) / 1000)) / 60 ) % 60;
+    minuteChange();
+  }
   drawMainScreen();
 }
 
@@ -181,8 +187,11 @@ int* getNextAlarmTime(){
     }
   }
 
-  if((!set && nextDay != 255) || (nextDay < ret[0]) ||
-    (nextDay == ret[0] && timeEquals(nextAlarm[0], nextAlarm[1], ret[1], ret[2]) == -1)){
+  if((
+    (!set) || 
+    (((nextDay < ret[0]) || (ret[0] < day)) && nextDay >= day) ||
+    (nextDay == ret[0] && timeEquals(nextAlarm[0], nextAlarm[1], ret[1], ret[2]) == 1)
+  ) && (nextDay != -1)){
 
     ret[0] = nextDay;
     ret[1] = nextAlarm[0];
@@ -224,6 +233,18 @@ void changeMenu(MenuItem* menu, int length){
   menuOption = 0;
   firstMenuOption = 0;
   renderMenu(currentMenu, 0);
+}
+
+void minuteChange(){
+  alarmSounded = false;
+  if (minutes == 60) {
+    minutes = 0;
+    hours += 1;
+    if (hours == 24) {
+      hours = 0;
+      day = (day + 1) % 7;
+    }
+  }
 }
 
 ICACHE_RAM_ATTR void encoderRotateInterrupt() {
@@ -279,8 +300,7 @@ void playAlarm(){
   centerPrint("WAKE UP!", 1);
 
   do{
-    tone(buzzerPin, 5000, 1000);
-    delay(1200);
+    alarmArray[selectedAlarm]();
   }while(digitalRead(SW));
 
   if(isMenuOpen){
@@ -363,6 +383,36 @@ void updateTimeCallback(){
   closeMenu();
 }
 
+byte tempAlarm;
+void confirmAlarmCallback(){
+  if(menuOption == 0){
+    selectedAlarm = tempAlarm;
+    // Save to EEPROM
+
+  }
+  changeToMainMenu();
+}
+
+void testAlarmCallback(){
+  int temp = selectedAlarm;
+  selectedAlarm = tempAlarm;
+  playAlarm();
+  selectedAlarm = temp;
+}
+
+MenuItem alarmConfirmMenu[3] = { MenuItem("Set", confirmAlarmCallback), MenuItem("Cancel", confirmAlarmCallback), MenuItem("Test", testAlarmCallback) };
+
+void changeAlarmSoundCallback(){
+  tempAlarm = menuOption;
+  changeMenu(alarmConfirmMenu, 3);  
+}
+
+const byte alarmSelectMenuLength = 2;
+MenuItem alarmSelectMenu[alarmSelectMenuLength] = { MenuItem("Default alarm", changeAlarmSoundCallback), MenuItem("Rapid fire alarm", changeAlarmSoundCallback)};
+
+void changeAlarmCallback(){
+  changeMenu(alarmSelectMenu, alarmSelectMenuLength);
+}
 
 MenuItem alarmMenu[] = {
   MenuItem("Back", alarmMenuBackCallback), MenuItem("Weekdays", setupAlarmDayCallback), MenuItem("Weekend", setupAlarmDayCallback), MenuItem("Monday", setupAlarmDayCallback), 
@@ -442,17 +492,17 @@ void nextAlarmDaySelectCallback(){
   if(menuOption == 0){
     nextDay = day;
   }else{
-    nextDay = day + 1;
+    nextDay = (day + 1) % 7;
   }
 
   saveAlarmsToEEPROM();
   changeToMainMenu();
 }
 
-const byte mainMenuLength = 9;
+const byte mainMenuLength = 8;
 MenuItem mainMenu[mainMenuLength] = {
   MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Modify next alarm", nextAlarmCallback), MenuItem("Remove next alarm", removeNextAlarmCallback), MenuItem("Remove alarm", removeAlarmCallback),
-   MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time", updateTimeCallback), MenuItem("Test alarm", playAlarm)
+   MenuItem("Change alarm sound", changeAlarmCallback), MenuItem("Update time", updateTimeCallback), MenuItem("Test alarm", playAlarm)
 };
 
 void alarmMenuBackCallback(){
@@ -502,7 +552,7 @@ void removeAlarmDayCallback(){
 }
 
 void removeNextAlarmCallback(){
-  nextDay = 255;
+  nextDay = -1;
   nextAlarm[1] = 255;
   nextAlarm[2] = 255;
 
@@ -556,7 +606,7 @@ void setup() {
 
   // TODO: Remove and load from memory tomorrow's alarm
   for(int i = 0; i < 7; i++){
-    Serial.printf("%s -> hour: %d minute: %d\n", daysOfTheWeek[i], alarmTimes[i][0], alarmTimes[i][1]);
+    Serial.printf("%d: %s -> hour: %d minute: %d\n", i, daysOfTheWeek[i], alarmTimes[i][0], alarmTimes[i][1]);
   }
   Serial.printf("Next alarm -> h: %d min: %d\nNext day %d\n", nextAlarm[0], nextAlarm[1], nextDay);
 
@@ -612,15 +662,7 @@ void loop() {
       // One seconds has passed
       if(prevSeconds == 59){
         minutes += 1;
-        alarmSounded = false;
-        if (minutes == 60) {
-          minutes = 0;
-          hours += 1;
-          if (hours == 24) {
-            hours = 0;
-            day = (day + 1) % 7;
-          }
-        }
+        minuteChange();
       }
       prevSeconds = seconds;
     }
