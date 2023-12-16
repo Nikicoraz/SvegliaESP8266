@@ -449,9 +449,10 @@ void nextAlarmDaySelectCallback(){
   changeToMainMenu();
 }
 
-const byte mainMenuLength = 8;
+const byte mainMenuLength = 9;
 MenuItem mainMenu[mainMenuLength] = {
-  MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Modify next alarm", nextAlarmCallback), MenuItem("Remove next alarm", removeNextAlarmCallback), MenuItem("Remove alarm", removeAlarmCallback), MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time", updateTimeCallback)
+  MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Modify next alarm", nextAlarmCallback), MenuItem("Remove next alarm", removeNextAlarmCallback), MenuItem("Remove alarm", removeAlarmCallback),
+   MenuItem("Change alarm sound"), MenuItem("Change LED settings"), MenuItem("Update time", updateTimeCallback), MenuItem("Test alarm", playAlarm)
 };
 
 void alarmMenuBackCallback(){
