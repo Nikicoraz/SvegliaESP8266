@@ -10,8 +10,15 @@ L'hardware della sveglia è composto da un ESP8266, un buzzer polarizzato con un
 ### Progettazione hardware
 La progettazione dell'hardware è stata svolta nel software KiCad
 
+### Schematica
+![Schematica](./img/CircuitScheme.png)
+
+### PCB
+![PCB](./img/PCB.png)
+
 ### Creazione della sveglia
 Dopo aver acquisito i componenti necessari e il circuito stampato, serve creare un file secrets.h dove bisogna inserire l'SSID e la password del Wifi e flashare l'ESP
+
 
 Es.
 ```C
