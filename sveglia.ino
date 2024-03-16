@@ -13,6 +13,7 @@
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 #include <EEPROM.h>
+#include <ArduinoOTA.h>
 #include "secrets.h"
 #include "menu.h"
 #include "alarms.h"
@@ -682,7 +683,7 @@ void loop() {
     }
 
     if(seconds != prevSeconds){
-      // One seconds has passed
+      // One second has passed
       if(prevSeconds == 59){
         minutes += 1;
         minuteChange();
