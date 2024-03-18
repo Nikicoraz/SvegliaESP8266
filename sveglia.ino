@@ -138,6 +138,8 @@ void connectWifi() {
 
     Serial.print("Connected to ");
     Serial.println(SSID);
+    Serial.print("Ip address: ");
+    Serial.println(WiFi.localIP());
   }
 }
 
@@ -634,6 +636,30 @@ void setup() {
   }
   Serial.printf("Next alarm -> h: %d min: %d\nNext day %d\n", nextAlarm[0], nextAlarm[1], nextDay);
 
+  // Arduino OTA
+  ArduinoOTA.onStart([] () {
+    Serial.println("Started OTA");
+  });
+
+  ArduinoOTA.onEnd([]() {
+    Serial.println("OTA end");
+  });
+
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("OTA update progress: %u%%\r", (progress / (total / 100)));
+  });
+
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  });
+
+  ArduinoOTA.begin();
+
   // Encoder
   attachInterrupt(digitalPinToInterrupt(14), encoderRotateInterrupt, FALLING);
   
@@ -713,4 +739,6 @@ void loop() {
     }
     delay(200);
   }
+
+  ArduinoOTA.handle();
 }
