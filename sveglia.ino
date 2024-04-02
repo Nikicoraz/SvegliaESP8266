@@ -256,33 +256,31 @@ void renderMenu(MenuItem* menu, int firstOption, bool resetCursor = true) {
 
 int* getNextAlarmTime(){
   bool set = false;
-
   int* ret = (int*)malloc(sizeof(int) * 3);
-  for(int i = 0; i < 7; i++){
-    int alarmHour, alarmMinutes, alarmDay;
 
-    alarmDay = (i + day) % 7;
-    alarmHour = alarmTimes[alarmDay][0];
-    alarmMinutes = alarmTimes[alarmDay][1];
-    if(alarmHour != 255 && (timeEquals(hours, minutes, alarmHour, alarmMinutes) == -1 || alarmDay != day)){
-      ret[0] = alarmDay;
-      ret[1] = alarmHour;
-      ret[2] = alarmMinutes;
-      set = true;
-      break;
-    }
-  }
-
-  if((
-    (!set) || 
-    ((nextDay < ret[0]) || (ret[0] < day && nextDay >= day))  ||
-    (nextDay == ret[0] && timeEquals(nextAlarm[0], nextAlarm[1], ret[1], ret[2]) == -1)
-  ) && (nextDay != -1)){
+  if(nextDay != -1){
 
     ret[0] = nextDay;
     ret[1] = nextAlarm[0];
     ret[2] = nextAlarm[1];
     set = true;
+  }
+
+  if(!set){
+    for(int i = 0; i < 7; i++){
+      int alarmHour, alarmMinutes, alarmDay;
+
+      alarmDay = (i + day) % 7;
+      alarmHour = alarmTimes[alarmDay][0];
+      alarmMinutes = alarmTimes[alarmDay][1];
+      if(alarmHour != 255 && (timeEquals(hours, minutes, alarmHour, alarmMinutes) == -1 || alarmDay != day)){
+        ret[0] = alarmDay;
+        ret[1] = alarmHour;
+        ret[2] = alarmMinutes;
+        set = true;
+        break;
+      }
+    }
   }
 
   if(!set){
