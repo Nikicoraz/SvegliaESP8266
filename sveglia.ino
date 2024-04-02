@@ -14,6 +14,8 @@
 #include <WiFiUdp.h>
 #include <EEPROM.h>
 #include <ArduinoOTA.h>
+#include <time.h>
+#include <cmath>
 #include "secrets.h"
 #include "menu.h"
 #include "alarms.h"
@@ -23,6 +25,7 @@ const char* PASSWD = SECRET_PASSWD;
 
 // Time zone offset
 const long utcOffsetInSeconds = 3600;
+const bool considerLegalHour = true;
 
 // Global time variables
 byte seconds = 0;
@@ -151,6 +154,27 @@ void closeMenu(){
   drawMainScreen();
 }
 
+
+// Will only be used with 31 day months
+int lastSundayDay(int mday, int wday){
+  if(wday != 0 && 31 - mday < 7){
+    if(mday + (7 - wday) <= 31){
+      return mday + (7 - wday);
+    }else{
+      return mday - wday;
+    }
+  }else{
+    printf("Mday: %d\n", mday);
+    printf("7 - wday: %d\naltro: %d\n", 7 - wday, 7 * (int)std::floor(((31 - mday) / 7) - 1));
+    return mday + (7 - wday) + 7 * (int)std::floor(((31 - mday) / 7) - 1);
+  }
+}
+
+void applyLegalHour(){
+  hours += 1;
+  hourChange();
+}
+
 void updateNTPTime() {
   Serial.println("Updating time...");
   Serial.printf("Was %02d:%02d:%02d", hours, minutes, seconds);
@@ -163,12 +187,51 @@ void updateNTPTime() {
       break;
     }
   } // Retry until the update succeds
+
   seconds = timeClient.getSeconds();
   minutes = timeClient.getMinutes();
   hours = timeClient.getHours();
   day = timeClient.getDay();
   ntpEpochTime = timeClient.getEpochTime();
   ntpStart = millis();
+
+  if(considerLegalHour){
+    // Legal hour >:(
+    time_t current_time = timeClient.getEpochTime();
+    struct tm* timeInfo = localtime(&current_time);
+    int month = timeInfo->tm_mon;
+    int mday = timeInfo->tm_mday;
+
+    // Months have index 0
+    if(month >= 3 || month <= 10){
+      applyLegalHour();
+    }else{
+      // March
+      
+      int lastSunday = lastSundayDay(mday, day);
+      if(month == 2){
+        if(mday > lastSunday){
+          applyLegalHour();
+        }else{
+          if(hours >= 2){
+            applyLegalHour();
+          }
+        }
+      }
+
+      // October
+      if(month == 9){
+        if(mday < lastSunday){
+          applyLegalHour();
+        }else{
+          if(hours < 3){
+            applyLegalHour();
+          }
+        }
+      }
+    }
+  }
+
   Serial.printf("Is now %02d:%02d:%02d", hours, minutes, seconds);
 
   timeClient.end();
@@ -258,15 +321,19 @@ void changeMenu(MenuItem* menu, int length){
   renderMenu(currentMenu, 0);
 }
 
+void hourChange(){
+  if (hours == 24) {
+    hours = 0;
+    day = (day + 1) % 7;
+  }
+}
+
 void minuteChange(){
   alarmSounded = false;
   if (minutes == 60) {
     minutes = 0;
     hours += 1;
-    if (hours == 24) {
-      hours = 0;
-      day = (day + 1) % 7;
-    }
+    hourChange();
   }
 }
 
