@@ -231,8 +231,6 @@ void updateNTPTime() {
         }
       }
     }
-
-    free(timeInfo);
   }
 
   Serial.printf("Is now %02d:%02d:%02d", hours, minutes, seconds);
