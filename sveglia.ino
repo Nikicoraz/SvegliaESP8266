@@ -592,11 +592,16 @@ void nextAlarmDaySelectCallback(){
   changeToMainMenu();
 }
 
+void mainTestAlarmCallback(){
+  delay(200);
+  playAlarm();
+}
+
 const byte mainMenuLength = 9;
 MenuItem mainMenu[mainMenuLength] = {
   MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Toggle next alarm", dismissCallback), MenuItem("Modify temp alarm", nextAlarmCallback), 
   MenuItem("Remove temp alarm", removeNextAlarmCallback), MenuItem("Remove alarm", removeAlarmCallback), MenuItem("Change alarm sound", changeAlarmCallback),
-   MenuItem("Update time", updateTimeCallback), MenuItem("Test alarm", playAlarm)
+   MenuItem("Update time", updateTimeCallback), MenuItem("Test alarm", mainTestAlarmCallback)
 };
 
 void alarmMenuBackCallback(){
