@@ -42,6 +42,7 @@ byte alarmTimes[7][2] = { {255,255}, {255,255}, {255,255}, {255,255}, {255,255},
 byte nextAlarm[2] = {255, 255};
 int nextDay = -1;
 
+bool dismissNextAlarm = false;
 bool alarmSounded = false;
 int selectedAlarm = 0;
 
@@ -230,6 +231,8 @@ void updateNTPTime() {
         }
       }
     }
+
+    free(timeInfo);
   }
 
   Serial.printf("Is now %02d:%02d:%02d", hours, minutes, seconds);
@@ -591,10 +594,11 @@ void nextAlarmDaySelectCallback(){
   changeToMainMenu();
 }
 
-const byte mainMenuLength = 8;
+const byte mainMenuLength = 9;
 MenuItem mainMenu[mainMenuLength] = {
-  MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Modify next alarm", nextAlarmCallback), MenuItem("Remove next alarm", removeNextAlarmCallback), MenuItem("Remove alarm", removeAlarmCallback),
-   MenuItem("Change alarm sound", changeAlarmCallback), MenuItem("Update time", updateTimeCallback), MenuItem("Test alarm", playAlarm)
+  MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Toggle next alarm", dismissCallback), MenuItem("Modify temp alarm", nextAlarmCallback), 
+  MenuItem("Remove temp alarm", removeNextAlarmCallback), MenuItem("Remove alarm", removeAlarmCallback), MenuItem("Change alarm sound", changeAlarmCallback),
+   MenuItem("Update time", updateTimeCallback), MenuItem("Test alarm", playAlarm)
 };
 
 void alarmMenuBackCallback(){
@@ -660,6 +664,20 @@ void removeNextAlarmCallback(){
 
 void changeToMainMenu(){
   changeMenu(mainMenu, mainMenuLength);
+}
+
+void dismissCallback(){
+  dismissNextAlarm = !dismissNextAlarm;
+  lcd.clear();
+  lcd.noCursor();
+  if(dismissNextAlarm){
+    centerPrint("Next alarm dismissed", 1);
+  }else{
+    centerPrint("Next alarm resumed", 1);
+  }
+  delay(1500);
+
+  changeToMainMenu();
 }
 
 // Custom chars
@@ -733,12 +751,16 @@ void setup() {
 const int NTPUpdateMillisDelay = 1000 * 60 * 5;  // Update every 5 minutes
 
 long long int prev = 0;
-long long int lastTimeUpdate = -NTPUpdateMillisDelay;
+long long int lastTimeUpdate = -NTPUpdateMillisDelay; // It updates on the first loop cycle
 byte prevSeconds = -1;
 
 void loop() {
   // It's time
   if((alarmTimes[day][0] == hours && alarmTimes[day][1] == minutes && nextDay != day) || (nextAlarm[0] == hours && nextAlarm[1] == minutes && nextDay == day)){
+    if(dismissNextAlarm){
+      alarmSounded = true;
+      dismissNextAlarm = false;
+    }
     if(!alarmSounded){
       playAlarm();
     }
