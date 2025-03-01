@@ -16,6 +16,8 @@
 #include <ArduinoOTA.h>
 #include <time.h>
 #include <cmath>
+
+
 #include "secrets.h"
 #include "menu.h"
 #include "alarms.h"
@@ -70,6 +72,18 @@ bool genericDelay = false;
 //
 // --- GENERAL FUNCTIONS ---
 //
+
+/*
+  -- EEPROM STRUCTURE --
+  0 (byte): EEPROM init value
+  1-16 (byte[]): alarmTimes
+  17-19 (byte[]): nextAlarm
+  20-24 (int): nextDay
+  24-28(int): selected alarm
+  29 (byte): networkOverride
+  29-???: networkOverrideSettings
+
+*/
 
 // 79 is a random prime number check
 const byte EEPROMCheckValue = 79;
@@ -697,7 +711,7 @@ byte downArrow[] = {
 
 void setup() {
   Serial.begin(115200);  // Start serial communication at 115200 baud
-  EEPROM.begin(64); // 0 - 22 Alarm times
+  EEPROM.begin(64);
 
   pinMode(buzzerPin, OUTPUT);
   pinMode(CLK, INPUT);
@@ -723,7 +737,7 @@ void setup() {
   Serial.printf("Next alarm -> h: %d min: %d\nNext day %d\n", nextAlarm[0], nextAlarm[1], nextDay);
 
   // Arduino OTA
-  ArduinoOTA.onStart([] () {
+1  ArduinoOTA.onStart([] () {
     Serial.println("Started OTA");
   });
 
