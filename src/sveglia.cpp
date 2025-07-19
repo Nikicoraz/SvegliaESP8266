@@ -22,6 +22,7 @@
 #include "secrets.h"
 #include "menu.h"
 #include "alarms.h"
+#include "webserver.h"
 
 const char* SSID = SECRET_SSID;
 const char* PASSWD = SECRET_PASSWD;
@@ -151,13 +152,21 @@ void toggleBacklight() {
 }
 
 void connectWifi() {
+  int retries = 10;
   if(WiFi.status() != WL_CONNECTED){
     WiFi.setHostname("ESPSveglia");
     WiFi.begin(SSID, PASSWD);
 
-    while (WiFi.status() != WL_CONNECTED) {
+    while (WiFi.status() != WL_CONNECTED && retries-- > 0) {
       delay(500);
       Serial.print(".");
+    }
+
+    if(retries == 0){
+      centerPrint("Connection failed!", 1);
+      // TODO: Start web server to configure wifi and display IP
+      delay(1000);
+      return;
     }
 
     if(!MDNS.begin("espsveglia")) {     // Sets the esp mDNS to "espsveglia.local"
@@ -756,7 +765,6 @@ void setup() {
 
   loadAlarmsFromEEPROM();
 
-  // TODO: Remove and load from memory tomorrow's alarm
   for(int i = 0; i < 7; i++){
     Serial.printf("%d: %s -> hour: %d minute: %d\n", i, daysOfTheWeek[i], alarmTimes[i][0], alarmTimes[i][1]);
   }
@@ -786,9 +794,10 @@ void setup() {
 
   ArduinoOTA.begin();
 
+  setupServer(connectWifi);
+
   // Encoder
   attachInterrupt(digitalPinToInterrupt(14), encoderRotateInterrupt, FALLING);
-  
 }
 
 const int NTPUpdateMillisDelay = 1000 * 60 * 5;  // Update every 5 minutes
@@ -798,6 +807,8 @@ long long int lastTimeUpdate = -NTPUpdateMillisDelay; // It updates on the first
 byte prevSeconds = -1;
 
 void loop() {
+  loopServer();
+
   // It's time
   if((alarmTimes[day][0] == hours && alarmTimes[day][1] == minutes && nextDay != day) || (nextAlarm[0] == hours && nextAlarm[1] == minutes && nextDay == day)){
     if(dismissNextAlarm){
@@ -869,6 +880,8 @@ void loop() {
     }
     delay(200);
   }
+
+
 
   ArduinoOTA.handle();
 }
