@@ -4,7 +4,8 @@
   Email: nicolacorato05@gmail.com
 
 */
-#define SW D3
+
+#define SW 0    // D3 = GPIO0
 #define DT D6
 #define CLK D5
 
@@ -16,7 +17,7 @@
 #include <ArduinoOTA.h>
 #include <time.h>
 #include <cmath>
-
+#include <ESP8266mDNS.h>
 
 #include "secrets.h"
 #include "menu.h"
@@ -87,6 +88,7 @@ bool genericDelay = false;
 
 // 79 is a random prime number check
 const byte EEPROMCheckValue = 79;
+
 void generalSaveCheck(){
   byte temp;
   EEPROM.get(0, temp);
@@ -110,20 +112,23 @@ bool saveAlarmThemeToEEPROM(){
 }
 
 void loadAlarmsFromEEPROM(){
-  byte check;
-  EEPROM.get(0, check);
-  if(check == EEPROMCheckValue){
-    // Alarm times
-    EEPROM.get(1, alarmTimes);
-    EEPROM.get(17, nextAlarm);
-    EEPROM.get(20, nextDay);
-
-    // Alarm theme
-    EEPROM.get(24, selectedAlarm);
-    Serial.println("Loaded alarms from EEPROM");
-
+  byte check = 0;
+  if(EEPROM.get(0, check)){
+    if(check == EEPROMCheckValue){
+      // Alarm times
+      EEPROM.get(1, alarmTimes);
+      EEPROM.get(17, nextAlarm);
+      EEPROM.get(20, nextDay);
+  
+      // Alarm theme
+      EEPROM.get(24, selectedAlarm);
+      Serial.println("Loaded alarms from EEPROM");
+  
+    }else{
+      Serial.println("EEPROM not initialized yet");
+    }
   }else{
-    Serial.println("EEPROM not initialized yet");
+    Serial.println("EEPROM reading failed");
   }
 }
 
@@ -147,11 +152,16 @@ void toggleBacklight() {
 
 void connectWifi() {
   if(WiFi.status() != WL_CONNECTED){
+    WiFi.setHostname("ESPSveglia");
     WiFi.begin(SSID, PASSWD);
 
     while (WiFi.status() != WL_CONNECTED) {
       delay(500);
       Serial.print(".");
+    }
+
+    if(!MDNS.begin("espsveglia")) {     // Sets the esp mDNS to "espsveglia.local"
+      Serial.println("Error setting up MDNS responder!");
     }
 
     Serial.print("Connected to ");
@@ -160,8 +170,6 @@ void connectWifi() {
     Serial.println(WiFi.localIP());
   }
 }
-
-
 
 
 // Will only be used with 31 day months
@@ -372,7 +380,7 @@ void minuteChange(){
   }
 }
 
-ICACHE_RAM_ATTR void encoderRotateInterrupt() {
+IRAM_ATTR void encoderRotateInterrupt() {
   if(genericCount){
     if(!genericDelay){    // This is because you can't do delays in functions nested too deep :(
       if(digitalRead(DT)){
@@ -684,8 +692,8 @@ void removeAlarmDayCallback(){
 
 void removeNextAlarmCallback(){
   nextDay = -1;
+  nextAlarm[0] = 255;
   nextAlarm[1] = 255;
-  nextAlarm[2] = 255;
 
   saveAlarmsToEEPROM();
 

@@ -18,12 +18,12 @@ La progettazione dell'hardware è stata svolta nel software KiCad
 
 Per la stampa del PCB ho utilizzato il sito [PCBWay](https://www.pcbway.com/)
 ### Creazione della sveglia
-Dopo aver acquisito i componenti necessari e il circuito stampato, serve creare un file secrets.h dove bisogna inserire l'SSID e la password del Wifi e flashare l'ESP
+Dopo aver acquisito i componenti necessari e il circuito stampato, serve creare un file src/secrets.h dove bisogna inserire l'SSID e la password del Wifi e flashare l'ESP
 
 
 Es.
 ```C
-// Secrets.h
+// src/secrets.h
 
 #define SECRET_SSID "<SSID>";
 #define SECRET_PASSWD "<Password>";
