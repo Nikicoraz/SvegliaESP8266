@@ -24,4 +24,4 @@ $cert
 
 static const char serverKey[] PROGMEM = R\"EOF(
 $key
-)EOF\";" > src/sslcert.h;
+)EOF\";" > include/sslcert.h;
