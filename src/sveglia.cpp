@@ -161,13 +161,7 @@ void connectWifi() {
   }
 }
 
-void closeMenu(){
-  isMenuOpen = false;
-  if(((ntpEpochTime + ((millis() - ntpStart) / 1000)) / 60 ) % 60 != minutes){
-    updateNTPTime();
-  }
-  drawMainScreen();
-}
+
 
 
 // Will only be used with 31 day months
@@ -182,6 +176,13 @@ int lastSundayDay(int mday, int wday){
     printf("Mday: %d\n", mday);
     printf("7 - wday: %d\naltro: %d\n", 7 - wday, 7 * (int)std::floor(((31 - mday) / 7) - 1));
     return mday + (7 - wday) + 7 * (int)std::floor(((31 - mday) / 7) - 1);
+  }
+}
+
+void hourChange(){
+  if (hours == 24) {
+    hours = 0;
+    day = (day + 1) % 7;
   }
 }
 
@@ -252,6 +253,16 @@ void updateNTPTime() {
   timeClient.end();
 }
 
+void drawMainScreen();
+
+void closeMenu(){
+  isMenuOpen = false;
+  if(((ntpEpochTime + ((millis() - ntpStart) / 1000)) / 60 ) % 60 != minutes){
+    updateNTPTime();
+  }
+  drawMainScreen();
+}
+
 void renderMenu(MenuItem* menu, int firstOption, bool resetCursor = true) {
   lcd.clear();
   int bound = currentMenuLength > 4 ? (firstOption + 4) : currentMenuLength;
@@ -266,6 +277,22 @@ void renderMenu(MenuItem* menu, int firstOption, bool resetCursor = true) {
   if(resetCursor){
     lcd.cursor();
     lcd.setCursor(0, 0);
+  }
+}
+
+int timeEquals(int h1, int min1, int h2, int min2){
+  if(h1 == h2){
+    if(min1 == min2){
+      return 0;
+    }else if(min1 > min2){
+      return 1;
+    }else{
+      return -1;
+    }
+  }else if(h1 > h2){
+    return 1;
+  }else{
+    return -1;
   }
 }
 
@@ -334,12 +361,7 @@ void changeMenu(MenuItem* menu, int length){
   renderMenu(currentMenu, 0);
 }
 
-void hourChange(){
-  if (hours == 24) {
-    hours = 0;
-    day = (day + 1) % 7;
-  }
-}
+
 
 void minuteChange(){
   alarmSounded = false;
@@ -455,21 +477,7 @@ int* selectAlarmTime(){
   return ret;
 }
 
-int timeEquals(int h1, int min1, int h2, int min2){
-  if(h1 == h2){
-    if(min1 == min2){
-      return 0;
-    }else if(min1 > min2){
-      return 1;
-    }else{
-      return -1;
-    }
-  }else if(h1 > h2){
-    return 1;
-  }else{
-    return -1;
-  }
-}
+
 
 void changeToMainMenu();
 
@@ -497,6 +505,8 @@ void testAlarmCallback(){
   selectedAlarm = temp;
 }
 
+void changeAlarmSoundCallback();
+
 MenuItem alarmConfirmMenu[3] = { MenuItem("Set", confirmAlarmCallback), MenuItem("Cancel", confirmAlarmCallback), MenuItem("Test", testAlarmCallback) };
 
 const byte alarmSelectMenuLength = 6;
@@ -520,6 +530,10 @@ void changeAlarmSoundCallback(){
 void changeAlarmCallback(){
   changeMenu(alarmSelectMenu, alarmSelectMenuLength);
 }
+
+void alarmMenuBackCallback();
+void setupAlarmDayCallback();
+void removeAlarmDayCallback();
 
 MenuItem alarmMenu[] = {
   MenuItem("Back", alarmMenuBackCallback), MenuItem("Weekdays", setupAlarmDayCallback), MenuItem("Weekend", setupAlarmDayCallback), MenuItem("Monday", setupAlarmDayCallback), 
@@ -611,11 +625,15 @@ void mainTestAlarmCallback(){
   playAlarm();
 }
 
+void dismissCallback();
+void removeNextAlarmCallback();
+void removeAlarmCallback();
+
 const byte mainMenuLength = 9;
 MenuItem mainMenu[mainMenuLength] = {
   MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Toggle next alarm", dismissCallback), MenuItem("Modify temp alarm", nextAlarmCallback), 
   MenuItem("Remove temp alarm", removeNextAlarmCallback), MenuItem("Remove alarm", removeAlarmCallback), MenuItem("Change alarm sound", changeAlarmCallback),
-   MenuItem("Update time", updateTimeCallback), MenuItem("Test alarm", mainTestAlarmCallback)
+  MenuItem("Update time", updateTimeCallback), MenuItem("Test alarm", mainTestAlarmCallback)
 };
 
 void alarmMenuBackCallback(){
@@ -737,7 +755,7 @@ void setup() {
   Serial.printf("Next alarm -> h: %d min: %d\nNext day %d\n", nextAlarm[0], nextAlarm[1], nextDay);
 
   // Arduino OTA
-1  ArduinoOTA.onStart([] () {
+  ArduinoOTA.onStart([] () {
     Serial.println("Started OTA");
   });
 
