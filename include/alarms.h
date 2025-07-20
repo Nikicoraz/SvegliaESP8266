@@ -6,7 +6,7 @@
 
 void millisDelay(int t){
   unsigned long temp = millis();
-  while(millis() - temp < t && digitalRead(SW)) {
+  while(millis() - temp < (unsigned long)t && digitalRead(SW)) {
   }
   return;
 }

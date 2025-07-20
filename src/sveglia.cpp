@@ -154,7 +154,7 @@ void toggleBacklight() {
 void connectWifi() {
   int retries = 10;
   if(WiFi.status() != WL_CONNECTED){
-    WiFi.setHostname("ESPSveglia");
+    WiFi.setHostname("ESPSveglia"); 
     WiFi.begin(SSID, PASSWD);
 
     while (WiFi.status() != WL_CONNECTED && retries-- > 0) {
@@ -732,6 +732,31 @@ void dismissCallback(){
   changeToMainMenu();
 }
 
+boolean setWifiFromWebserver(String ssid, String passwd){
+  SSID = ssid.c_str();
+  PASSWD = passwd.c_str();
+
+  if(!isBacklightOn){
+    toggleBacklight();
+  }
+  lcd.clear();
+  centerPrint("Connecting to:");
+  centerPrint(SSID, 1);
+
+  WiFi.disconnect();
+
+  connectWifi();
+  if(WiFi.status() == WL_CONNECTED){
+    return true;
+  }else{
+    // TODO: Riaccendi la modalità hotspot
+    lcd.clear();
+    centerPrint("Connection failed!", 1);
+    delay(1000);
+    return false;
+  }
+}
+
 // Custom chars
 byte downArrow[] = {
   B00000,
@@ -794,7 +819,7 @@ void setup() {
 
   ArduinoOTA.begin();
 
-  setupServer(connectWifi);
+  setupServer(connectWifi, setWifiFromWebserver);
 
   // Encoder
   attachInterrupt(digitalPinToInterrupt(14), encoderRotateInterrupt, FALLING);
