@@ -16,7 +16,7 @@ void page(){
 }
 
 void secureRedirect(){
-    serverHTTP.sendHeader("Location", String("https://espsveglia.local"), true);
+    serverHTTP.sendHeader("Location", "https://" + WiFi.softAPIP().toString(), true);
     serverHTTP.send(301, "text/plain", "");
 }
 
@@ -39,12 +39,6 @@ void handleSetWifi(const std::function<boolean(String, String)>& setWifiFunc){
 }
 
 void setupServer(const std::function<void()>& connectWifi, const std::function<boolean(String, String)>& setWifiFunc){
-    // TODO: Modalità hotspot
-
-    if(WiFi.status() != WL_CONNECTED){
-        connectWifi();
-    }
-
     serverHTTP.on("/", secureRedirect);
     serverHTTP.begin();
 

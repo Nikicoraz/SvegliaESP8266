@@ -70,6 +70,7 @@ byte isMenuOpen = false;
 int genericCouter;
 bool genericCount = false;
 bool genericDelay = false;
+bool notConnectedMode = false;
 
 //
 // --- GENERAL FUNCTIONS ---
@@ -151,22 +152,39 @@ void toggleBacklight() {
   isBacklightOn = !isBacklightOn;
 }
 
+void connectWifi();
+bool setWifiFromWebserver(String, String);
+
+void connectionFailed(){
+  notConnectedMode = true;
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP("ESPSveglia", AP_PASSWD);
+  lcd.clear();
+  centerPrint("IP: " + WiFi.softAPIP().toString(), 1);
+  setupServer(connectWifi, setWifiFromWebserver);
+}
+
 void connectWifi() {
   int retries = 10;
   if(WiFi.status() != WL_CONNECTED){
+    WiFi.mode(WIFI_STA);
     WiFi.setHostname("ESPSveglia"); 
     WiFi.begin(SSID, PASSWD);
 
     while (WiFi.status() != WL_CONNECTED && retries-- > 0) {
       delay(500);
+      centerPrint("Retries: " + String(retries), 2);
       Serial.print(".");
     }
 
-    if(retries == 0){
+    if(retries == -1){
       centerPrint("Connection failed!", 1);
-      // TODO: Start web server to configure wifi and display IP
+      connectionFailed();
       delay(1000);
       return;
+    }else{
+      notConnectedMode = false;
     }
 
     if(!MDNS.begin("espsveglia")) {     // Sets the esp mDNS to "espsveglia.local"
@@ -749,10 +767,6 @@ boolean setWifiFromWebserver(String ssid, String passwd){
   if(WiFi.status() == WL_CONNECTED){
     return true;
   }else{
-    // TODO: Riaccendi la modalità hotspot
-    lcd.clear();
-    centerPrint("Connection failed!", 1);
-    delay(1000);
     return false;
   }
 }
@@ -819,10 +833,11 @@ void setup() {
 
   ArduinoOTA.begin();
 
-  setupServer(connectWifi, setWifiFromWebserver);
 
   // Encoder
   attachInterrupt(digitalPinToInterrupt(14), encoderRotateInterrupt, FALLING);
+
+  connectWifi();
 }
 
 const int NTPUpdateMillisDelay = 1000 * 60 * 5;  // Update every 5 minutes
@@ -831,9 +846,7 @@ long long int prev = 0;
 long long int lastTimeUpdate = -NTPUpdateMillisDelay; // It updates on the first loop cycle
 byte prevSeconds = -1;
 
-void loop() {
-  loopServer();
-
+void normalLoop(){
   // It's time
   if((alarmTimes[day][0] == hours && alarmTimes[day][1] == minutes && nextDay != day) || (nextAlarm[0] == hours && nextAlarm[1] == minutes && nextDay == day)){
     if(dismissNextAlarm){
@@ -905,8 +918,14 @@ void loop() {
     }
     delay(200);
   }
+}
 
-
+void loop() {
+  if(notConnectedMode){
+    loopServer();
+  }else{
+    normalLoop();
+  }
 
   ArduinoOTA.handle();
 }
