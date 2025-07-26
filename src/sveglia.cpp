@@ -162,7 +162,6 @@ void connectionFailed(){
   WiFi.softAP("ESPSveglia", AP_PASSWD);
   lcd.clear();
   centerPrint("IP: " + WiFi.softAPIP().toString(), 1);
-  setupServer(connectWifi, setWifiFromWebserver);
 }
 
 void connectWifi() {
@@ -381,7 +380,8 @@ void drawMainScreen(){
     centerPrint("Next alarm:", 2);
   
     char buffer[columns + 1];
-    sprintf(buffer, "%02d:%02d %s", nextAlarm[1], nextAlarm[2], daysOfTheWeek[nextAlarm[0]]);
+    const char* dismissed = dismissNextAlarm ? "[D]" : "";
+    sprintf(buffer, "%02d:%02d %s %s", nextAlarm[1], nextAlarm[2], daysOfTheWeek[nextAlarm[0]], dismissed);
     centerPrint(buffer, 3);
   }
   free(nextAlarm);
@@ -544,10 +544,11 @@ void changeAlarmSoundCallback();
 
 MenuItem alarmConfirmMenu[3] = { MenuItem("Set", confirmAlarmCallback), MenuItem("Cancel", confirmAlarmCallback), MenuItem("Test", testAlarmCallback) };
 
-const byte alarmSelectMenuLength = 6;
+const byte alarmSelectMenuLength = 7;
 MenuItem alarmSelectMenu[alarmSelectMenuLength] = { MenuItem("Back", changeToMainMenu), MenuItem("Default alarm", changeAlarmSoundCallback),
                                 MenuItem("Rapid fire alarm", changeAlarmSoundCallback), MenuItem("Uneven alarm", changeAlarmSoundCallback),
-                                MenuItem("Scale alarm", changeAlarmSoundCallback), MenuItem("Double tone alarm", changeAlarmSoundCallback) };
+                                MenuItem("Scale alarm", changeAlarmSoundCallback), MenuItem("Double tone alarm", changeAlarmSoundCallback),
+                                MenuItem("Complex Presents", changeAlarmSoundCallback) };
 
 void confirmAlarmCallback(){
   if(menuOption == 0){
@@ -660,15 +661,22 @@ void mainTestAlarmCallback(){
   playAlarm();
 }
 
+void setupWifiCallback(){
+  isMenuOpen = false;
+  lcd.cursor_off();
+  WiFi.disconnect();
+  connectionFailed();
+}
+
 void dismissCallback();
 void removeNextAlarmCallback();
 void removeAlarmCallback();
 
-const byte mainMenuLength = 9;
+const byte mainMenuLength = 10;
 MenuItem mainMenu[mainMenuLength] = {
   MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Toggle next alarm", dismissCallback), MenuItem("Modify temp alarm", nextAlarmCallback), 
   MenuItem("Remove temp alarm", removeNextAlarmCallback), MenuItem("Remove alarm", removeAlarmCallback), MenuItem("Change alarm sound", changeAlarmCallback),
-  MenuItem("Update time", updateTimeCallback), MenuItem("Test alarm", mainTestAlarmCallback)
+  MenuItem("Update time", updateTimeCallback), MenuItem("Test alarm", mainTestAlarmCallback), MenuItem("Setup wifi", setupWifiCallback)
 };
 
 void alarmMenuBackCallback(){
@@ -837,6 +845,7 @@ void setup() {
   // Encoder
   attachInterrupt(digitalPinToInterrupt(14), encoderRotateInterrupt, FALLING);
 
+  setupServer(connectWifi, setWifiFromWebserver);
   connectWifi();
 }
 

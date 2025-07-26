@@ -2,13 +2,18 @@
 
 #define ALARMS_H
 #define buzzerPin D7
-
+#define NOTE_BASE 4000
 
 void millisDelay(int t){
   unsigned long temp = millis();
   while(millis() - temp < (unsigned long)t && digitalRead(SW)) {
   }
   return;
+}
+
+void note(int note, int duration = 200, int pause = 20){
+  tone(buzzerPin, NOTE_BASE + 500 * note, duration);
+  millisDelay(duration + pause);
 }
 
 void defaultAlarm(){
@@ -46,5 +51,20 @@ void doubleToneAlarm(){
   millisDelay(500);
 }
 
-void (*alarmArray[])(void) = { &defaultAlarm, &rapidFireAlarm, &unevenAlarm, &scaleAlarm, &doubleToneAlarm };
+void complexPresents(){
+  note(-3);
+  note(0, 200, 40);
+  note(0);
+  note(1);
+  note(2);
+  note(0);
+  note(2);
+  note(3);
+  note(4, 200, 40);
+  note(4);
+  note(3);
+  note(2);
+}
+
+void (*alarmArray[])(void) = { &defaultAlarm, &rapidFireAlarm, &unevenAlarm, &scaleAlarm, &doubleToneAlarm, &complexPresents };
 #endif
