@@ -3,4 +3,7 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
-secrets.h
+include/secrets.h
+include/sslcert.h
+cert.txt
+key.txt

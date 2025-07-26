@@ -22,6 +22,7 @@
 #include "secrets.h"
 #include "menu.h"
 #include "alarms.h"
+#include "webserver.h"
 
 const char* SSID = SECRET_SSID;
 const char* PASSWD = SECRET_PASSWD;
@@ -69,6 +70,7 @@ byte isMenuOpen = false;
 int genericCouter;
 bool genericCount = false;
 bool genericDelay = false;
+bool notConnectedMode = false;
 
 //
 // --- GENERAL FUNCTIONS ---
@@ -150,14 +152,38 @@ void toggleBacklight() {
   isBacklightOn = !isBacklightOn;
 }
 
+void connectWifi();
+bool setWifiFromWebserver(String, String);
+
+void connectionFailed(){
+  notConnectedMode = true;
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP("ESPSveglia", AP_PASSWD);
+  lcd.clear();
+  centerPrint("IP: " + WiFi.softAPIP().toString(), 1);
+}
+
 void connectWifi() {
+  int retries = 10;
   if(WiFi.status() != WL_CONNECTED){
-    WiFi.setHostname("ESPSveglia");
+    WiFi.mode(WIFI_STA);
+    WiFi.setHostname("ESPSveglia"); 
     WiFi.begin(SSID, PASSWD);
 
-    while (WiFi.status() != WL_CONNECTED) {
+    while (WiFi.status() != WL_CONNECTED && retries-- > 0) {
       delay(500);
+      centerPrint("Retries: " + String(retries), 2);
       Serial.print(".");
+    }
+
+    if(retries == -1){
+      centerPrint("Connection failed!", 1);
+      connectionFailed();
+      delay(1000);
+      return;
+    }else{
+      notConnectedMode = false;
     }
 
     if(!MDNS.begin("espsveglia")) {     // Sets the esp mDNS to "espsveglia.local"
@@ -354,7 +380,8 @@ void drawMainScreen(){
     centerPrint("Next alarm:", 2);
   
     char buffer[columns + 1];
-    sprintf(buffer, "%02d:%02d %s", nextAlarm[1], nextAlarm[2], daysOfTheWeek[nextAlarm[0]]);
+    const char* dismissed = dismissNextAlarm ? "[D]" : "";
+    sprintf(buffer, "%02d:%02d %s %s", nextAlarm[1], nextAlarm[2], daysOfTheWeek[nextAlarm[0]], dismissed);
     centerPrint(buffer, 3);
   }
   free(nextAlarm);
@@ -517,10 +544,11 @@ void changeAlarmSoundCallback();
 
 MenuItem alarmConfirmMenu[3] = { MenuItem("Set", confirmAlarmCallback), MenuItem("Cancel", confirmAlarmCallback), MenuItem("Test", testAlarmCallback) };
 
-const byte alarmSelectMenuLength = 6;
+const byte alarmSelectMenuLength = 7;
 MenuItem alarmSelectMenu[alarmSelectMenuLength] = { MenuItem("Back", changeToMainMenu), MenuItem("Default alarm", changeAlarmSoundCallback),
                                 MenuItem("Rapid fire alarm", changeAlarmSoundCallback), MenuItem("Uneven alarm", changeAlarmSoundCallback),
-                                MenuItem("Scale alarm", changeAlarmSoundCallback), MenuItem("Double tone alarm", changeAlarmSoundCallback) };
+                                MenuItem("Scale alarm", changeAlarmSoundCallback), MenuItem("Double tone alarm", changeAlarmSoundCallback),
+                                MenuItem("Complex Presents", changeAlarmSoundCallback) };
 
 void confirmAlarmCallback(){
   if(menuOption == 0){
@@ -633,15 +661,22 @@ void mainTestAlarmCallback(){
   playAlarm();
 }
 
+void setupWifiCallback(){
+  isMenuOpen = false;
+  lcd.cursor_off();
+  WiFi.disconnect();
+  connectionFailed();
+}
+
 void dismissCallback();
 void removeNextAlarmCallback();
 void removeAlarmCallback();
 
-const byte mainMenuLength = 9;
+const byte mainMenuLength = 10;
 MenuItem mainMenu[mainMenuLength] = {
   MenuItem("Back", closeMenu), MenuItem("Setup alarm", setupAlarmCallback), MenuItem("Toggle next alarm", dismissCallback), MenuItem("Modify temp alarm", nextAlarmCallback), 
   MenuItem("Remove temp alarm", removeNextAlarmCallback), MenuItem("Remove alarm", removeAlarmCallback), MenuItem("Change alarm sound", changeAlarmCallback),
-  MenuItem("Update time", updateTimeCallback), MenuItem("Test alarm", mainTestAlarmCallback)
+  MenuItem("Update time", updateTimeCallback), MenuItem("Test alarm", mainTestAlarmCallback), MenuItem("Setup wifi", setupWifiCallback)
 };
 
 void alarmMenuBackCallback(){
@@ -723,6 +758,27 @@ void dismissCallback(){
   changeToMainMenu();
 }
 
+boolean setWifiFromWebserver(String ssid, String passwd){
+  SSID = ssid.c_str();
+  PASSWD = passwd.c_str();
+
+  if(!isBacklightOn){
+    toggleBacklight();
+  }
+  lcd.clear();
+  centerPrint("Connecting to:");
+  centerPrint(SSID, 1);
+
+  WiFi.disconnect();
+
+  connectWifi();
+  if(WiFi.status() == WL_CONNECTED){
+    return true;
+  }else{
+    return false;
+  }
+}
+
 // Custom chars
 byte downArrow[] = {
   B00000,
@@ -756,7 +812,6 @@ void setup() {
 
   loadAlarmsFromEEPROM();
 
-  // TODO: Remove and load from memory tomorrow's alarm
   for(int i = 0; i < 7; i++){
     Serial.printf("%d: %s -> hour: %d minute: %d\n", i, daysOfTheWeek[i], alarmTimes[i][0], alarmTimes[i][1]);
   }
@@ -786,9 +841,12 @@ void setup() {
 
   ArduinoOTA.begin();
 
+
   // Encoder
   attachInterrupt(digitalPinToInterrupt(14), encoderRotateInterrupt, FALLING);
-  
+
+  setupServer(connectWifi, setWifiFromWebserver);
+  connectWifi();
 }
 
 const int NTPUpdateMillisDelay = 1000 * 60 * 5;  // Update every 5 minutes
@@ -797,7 +855,7 @@ long long int prev = 0;
 long long int lastTimeUpdate = -NTPUpdateMillisDelay; // It updates on the first loop cycle
 byte prevSeconds = -1;
 
-void loop() {
+void normalLoop(){
   // It's time
   if((alarmTimes[day][0] == hours && alarmTimes[day][1] == minutes && nextDay != day) || (nextAlarm[0] == hours && nextAlarm[1] == minutes && nextDay == day)){
     if(dismissNextAlarm){
@@ -868,6 +926,14 @@ void loop() {
       }
     }
     delay(200);
+  }
+}
+
+void loop() {
+  if(notConnectedMode){
+    loopServer();
+  }else{
+    normalLoop();
   }
 
   ArduinoOTA.handle();
