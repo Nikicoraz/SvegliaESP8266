@@ -38,6 +38,7 @@ byte hours = 0;
 byte day = 0;
 unsigned long ntpEpochTime;
 unsigned long ntpStart;
+bool timeSetManually = false;
 
 char daysOfTheWeek[7][12] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
 
@@ -162,9 +163,13 @@ void connectionFailed(){
   WiFi.softAP("ESPSveglia", AP_PASSWD);
   lcd.clear();
   centerPrint("IP: " + WiFi.softAPIP().toString(), 1);
+  centerPrint("Press to set time", 2);
 }
 
 void connectWifi() {
+  if(timeSetManually)
+    return;
+
   int retries = 10;
   if(WiFi.status() != WL_CONNECTED){
     WiFi.mode(WIFI_STA);
@@ -226,6 +231,9 @@ void applyLegalHour(){
 }
 
 void updateNTPTime() {
+  if(timeSetManually)
+    return;
+
   Serial.println("Updating time...");
   Serial.printf("Was %02d:%02d:%02d", hours, minutes, seconds);
 
@@ -468,13 +476,17 @@ void playAlarm(){
   }
 }
 
-int* selectAlarmTime(){
+int* selectAlarmTime(String header = ""){
   int* ret = (int*)malloc(sizeof(int) * 2);
   genericCount = true;
   genericCouter = 0;
   lcd.clear();
   lcd.noCursor();
-  centerPrint("Alarm time");
+  if(header != ""){
+    centerPrint(header);
+  }else{
+    centerPrint("Alarm time");
+  }
   delay(200);
 
   int min = 0, h = 0;
@@ -663,6 +675,7 @@ void mainTestAlarmCallback(){
 
 void setupWifiCallback(){
   isMenuOpen = false;
+  timeSetManually = false;
   lcd.cursor_off();
   WiFi.disconnect();
   connectionFailed();
@@ -932,6 +945,20 @@ void normalLoop(){
 void loop() {
   if(notConnectedMode){
     loopServer();
+    // Button press
+    if(!digitalRead(SW)){
+      // TODO: Manually set the time
+      int* time = selectAlarmTime("Set current time");
+      int h = time[0];
+      int min = time[1];
+      delete time;
+
+      hours = h;
+      minutes = min;
+      seconds = 0;
+      timeSetManually = true;
+      notConnectedMode = false;
+    }
   }else{
     normalLoop();
   }
